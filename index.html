@@ -4,326 +4,167 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Glen Don Lodge</title>
-
   <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║                  GLEN DON LODGE — SETUP GUIDE                        ║
   ╚══════════════════════════════════════════════════════════════════════╝
 
-  GitHub Pages folder structure (both files in the same folder):
-    /index.html
-    /cabin-bg.jpg    ← the background photo
+  Files needed in your GitHub repo:
+    /index.html      ← this file
+    /cabin-bg.jpg    ← background photo
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  1. FIREBASE  — stores all bookings, shared across all devices        │
+  │  STEP 1 — Create the Google Sheet                                     │
   └──────────────────────────────────────────────────────────────────────┘
-    a) Go to https://console.firebase.google.com
-    b) "Add project" → name it "glen-don-lodge" → Create
-    c) Build → Firestore Database → "Create database" → "Start in test mode"
-    d) Gear ⚙ → Project settings → "Your apps" → web icon </>
-    e) Register with any nickname → copy the firebaseConfig values below
+  Go to sheets.google.com → new blank spreadsheet → name it "Glen Don Lodge"
+
+  Create two tabs (the + button at the bottom), named exactly:
+    Bookings
+    Subscribers
+
+  In "Bookings" tab row 1, type one word per cell across columns A to J:
+    id  name  email  phone  checkIn  checkOut  guests  note  status  requestedAt
+
+  In "Subscribers" tab row 1, type one word per cell across columns A to D:
+    id  name  email  subscribedAt
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  2. EMAILJS  — sends emails from the browser, no backend needed       │
+  │  STEP 2 — Add the Apps Script                                         │
   └──────────────────────────────────────────────────────────────────────┘
-    Free tier = 200 emails/month
-
-    a) https://www.emailjs.com → create free account
-    b) Email Services → Add New Service → Gmail → copy the SERVICE ID
-    c) Email Templates → Create New Template × 4:
-
-       ── template_confirm  (sent on request submission) ────────────────
-       To:      {{to_email}}
-       Subject: Glen Don Lodge — booking request received!
-       Body:
-         Hi {{to_name}},
-         Thanks for your request at Glen Don Lodge! 🏡
-         Check-in:  {{check_in}}
-         Check-out: {{check_out}}
-         Nights:    {{nights}}
-         Guests:    {{guests}}
-         The cabin admin will review it and be in touch soon.
-
-       ── template_approved  (sent on approval) ─────────────────────────
-       To:      {{to_email}}
-       Subject: ✅ Glen Don Lodge — your stay is confirmed!
-       Body:
-         Hi {{to_name}}, your stay is CONFIRMED! 🎉
-         Check-in: {{check_in}} → Check-out: {{check_out}}
-         {{nights}} nights · {{guests}} guests. See you there!
-
-       ── template_declined  (sent on decline) ──────────────────────────
-       To:      {{to_email}}
-       Subject: Glen Don Lodge — about your booking request
-       Body:
-         Hi {{to_name}},
-         Unfortunately {{check_in}} → {{check_out}} isn't available.
-         Please check the calendar and try different dates.
-
-       ── template_broadcast  (admin announcements) ─────────────────────
-       To:      {{to_email}}
-       Subject: {{broadcast_subject}}
-       Body:
-         Hi {{to_name}},
-         {{broadcast_message}}
-         — The Glen Don Lodge admin 🏡
-         Reply to this email to be removed from the list.
-
-    d) Account → API Keys → copy your Public Key
+  In your Google Sheet:
+    Extensions → Apps Script
+  Delete any code already there.
+  Paste the entire contents of Code.gs (the other downloaded file).
+  Save (Ctrl+S / Cmd+S).
 
   ┌──────────────────────────────────────────────────────────────────────┐
-  │  3. GITHUB PAGES                                                      │
+  │  STEP 3 — Deploy the Apps Script as a Web App                         │
   └──────────────────────────────────────────────────────────────────────┘
-    a) Create repo (e.g. "glen-don-lodge")
-    b) Push index.html AND cabin-bg.jpg to the main branch
-    c) Repo Settings → Pages → Source: main / root → Save
-    d) Live at: https://YOUR-USERNAME.github.io/glen-don-lodge
+  In Apps Script editor:
+    Click Deploy → New deployment
+    Click the gear ⚙ next to "Type" → select Web app
+    Execute as:     Me
+    Who has access: Anyone
+    Click Deploy → Authorize access → choose your Google account → Allow
+  Copy the Web app URL (looks like https://script.google.com/macros/s/.../exec)
+  Paste it below as scriptUrl.
+
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │  STEP 4 — Push to GitHub                                              │
+  └──────────────────────────────────────────────────────────────────────┘
+  Upload index.html and cabin-bg.jpg to your GitHub repo.
+  Repo Settings → Pages → Source: main / root → Save.
+  Your site: https://YOUR-USERNAME.github.io/glen-don-lodge
+
+  Emails are sent directly from your Gmail — no EmailJS or any other service needed.
   -->
-
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" rel="stylesheet">
-
   <style>
-    :root {
-      --forest:    #2D5016;
-      --forest-dk: #1e3a0f;
-      --cream:     #faf7f2;
-      --card-bg:   rgba(255,255,255,0.92);
-      --border:    #ddd8ce;
-      --text:      #1a1612;
-      --muted:     #6b6358;
-      --faint:     #9e9488;
-      --pending-bg:#faecc8; --pending-tx:#7a4f00; --pending-bd:#e8c570;
-      --booked-bg: #f0c4c4; --booked-tx: #8b1a1a; --booked-bd: #e09090;
-      --ok-bg:     #d4edda; --ok-tx:     #1a5c2e;
-      --radius: 12px;
-      --shadow: 0 2px 10px rgba(0,0,0,0.09), 0 1px 2px rgba(0,0,0,0.05);
-    }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
-    html, body { font-family: 'DM Sans', sans-serif; color: var(--text); min-height: 100vh; }
-
-    /* Background photo with white-ish wash */
-    body::before {
-      content: '';
-      position: fixed; inset: 0;
-      background:
-        linear-gradient(to bottom,
-          rgba(255,255,255,0.60) 0%,
-          rgba(255,255,255,0.50) 50%,
-          rgba(255,255,255,0.58) 100%),
-        url('cabin-bg.jpg') center center / cover no-repeat;
-      z-index: 0;
-    }
-
-    #app { position: relative; z-index: 1; min-height: 100vh; }
-
-    .wrap { max-width: 1000px; margin: 0 auto; padding: 0 1rem 3rem; }
-
-    /* ── Header ───────────────────────────────────────── */
-    .site-header { text-align: center; padding: 2rem 1rem 1.5rem; margin-bottom: 1.5rem; }
-
-    .site-logo {
-      font-family: 'Lora', serif;
-      font-size: clamp(26px, 5vw, 36px);
-      font-weight: 600;
-      letter-spacing: -0.3px;
-      color: var(--text);
-      text-shadow: 0 1px 6px rgba(255,255,255,0.9);
-    }
-
-    .site-sub {
-      font-family: 'Lora', serif; font-style: italic;
-      font-size: 14px; color: var(--muted); margin-top: 4px;
-    }
-
-    .site-nav {
-      display: flex; gap: 8px; justify-content: center;
-      margin-top: 1.25rem; flex-wrap: wrap;
-    }
-
-    .site-nav button {
-      font-family: 'DM Sans', sans-serif; font-size: 14px;
-      padding: 9px 20px; border-radius: 30px;
-      border: 1px solid rgba(255,255,255,0.7);
-      background: rgba(255,255,255,0.72);
-      color: var(--muted); cursor: pointer;
-      transition: all 0.18s; backdrop-filter: blur(6px);
-    }
-    .site-nav button:hover  { background: rgba(255,255,255,0.95); color: var(--text); }
-    .site-nav button.active { background: var(--forest); color: #fff; border-color: var(--forest); }
-
-    /* ── Glass card ───────────────────────────────────── */
-    .card { background: var(--card-bg); border: 1px solid rgba(255,255,255,0.72); border-radius: var(--radius); box-shadow: var(--shadow); backdrop-filter: blur(8px); }
-    .card-pad { padding: 1.25rem 1.5rem; }
-
-    /* ── 3-month grid ─────────────────────────────────── */
-    .three-months {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 0.875rem;
-      margin-bottom: 0.875rem;
-    }
-
-    @media (max-width: 680px) { .three-months { grid-template-columns: 1fr; } }
-    @media (min-width: 681px) and (max-width: 860px) { .three-months { grid-template-columns: 1fr 1fr; } }
-
-    .month-card {
-      background: var(--card-bg);
-      border: 1px solid rgba(255,255,255,0.72);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      backdrop-filter: blur(8px);
-      padding: 1rem;
-    }
-
-    .cal-month-title {
-      font-family: 'Lora', serif; font-size: 15px; font-weight: 600;
-      text-align: center; margin-bottom: 0.75rem;
-    }
-
-    table.cal { width: 100%; border-collapse: collapse; }
-    table.cal th { text-align: center; font-size: 10px; font-weight: 500; color: var(--faint); padding: 4px 0; text-transform: uppercase; letter-spacing: 0.5px; }
-    table.cal td { text-align: center; padding: 1px; }
-
-    .day {
-      width: 100%; aspect-ratio: 1; max-width: 34px;
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 7px; font-size: 12px; border: 1px solid transparent;
-    }
-
-    .day.available { color: var(--text); }
-    .day.past      { color: #ccc; }
-    .day.today     { border-color: var(--forest); color: var(--forest); font-weight: 700; }
-    .day.booked    { background: var(--booked-bg); color: var(--booked-tx); border-color: var(--booked-bd); font-weight: 500; }
-    .day.pending   { background: var(--pending-bg); color: var(--pending-tx); border-color: var(--pending-bd); font-weight: 500; }
-
-    /* ── Calendar nav ─────────────────────────────────── */
-    .cal-nav-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.875rem; }
-    .cal-nav-row button {
-      background: rgba(255,255,255,0.72); border: 1px solid var(--border);
-      border-radius: 8px; width: 36px; height: 36px; cursor: pointer;
-      font-size: 20px; color: var(--muted);
-      display: flex; align-items: center; justify-content: center;
-      backdrop-filter: blur(4px);
-    }
-    .cal-nav-row button:hover { background: rgba(255,255,255,0.98); }
-    .cal-nav-label { font-family: 'Lora', serif; font-size: 14px; color: var(--muted); font-style: italic; }
-
-    /* ── Legend ───────────────────────────────────────── */
-    .legend { display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center; padding: 0.75rem 0 0; }
-    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: var(--muted); }
-    .legend-dot  { width: 12px; height: 12px; border-radius: 4px; border: 1px solid; flex-shrink: 0; }
-
-    /* ── Buttons ──────────────────────────────────────── */
-    .btn { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 9px 18px; border-radius: var(--radius); border: 1px solid var(--border); background: rgba(255,255,255,0.85); color: var(--text); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-    .btn:hover    { background: #fff; }
-    .btn:disabled { opacity: 0.5; cursor: default; }
-    .btn-primary  { background: var(--forest); color: #fff; border-color: var(--forest); }
-    .btn-primary:hover { background: var(--forest-dk); }
-    .btn-danger   { background: #8b1a1a; color: #fff; border-color: #8b1a1a; }
-    .btn-danger:hover  { background: #6b1212; }
-    .btn-full { width: 100%; font-size: 16px; padding: 13px 24px; }
-
-    /* ── Forms ────────────────────────────────────────── */
-    .form-group { margin-bottom: 1.25rem; }
-    label.lbl   { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
-    input.inp, textarea.inp {
-      width: 100%; padding: 11px 14px; font-size: 16px;
-      font-family: 'DM Sans', sans-serif;
-      border: 1px solid var(--border); border-radius: 10px;
-      background: rgba(255,255,255,0.88); color: var(--text); appearance: none;
-      transition: border-color 0.15s, box-shadow 0.15s;
-    }
-    input.inp:focus, textarea.inp:focus { outline: none; border-color: var(--forest); box-shadow: 0 0 0 3px rgba(45,80,22,0.12); background: rgba(255,255,255,0.99); }
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 480px) { .two-col { grid-template-columns: 1fr; } }
-    .hint { font-size: 12px; color: var(--faint); margin-top: 5px; }
-    .err  { font-size: 13px; color: var(--booked-tx); margin-top: 6px; }
-    .nights-note { font-size: 13px; color: var(--forest); font-weight: 500; margin-top: 6px; margin-bottom: 0.5rem; }
-
-    /* ── Badges ───────────────────────────────────────── */
-    .badge { font-size: 11px; padding: 3px 10px; border-radius: 20px; font-weight: 500; text-transform: capitalize; white-space: nowrap; }
-    .badge.pending  { background: var(--pending-bg); color: var(--pending-tx); }
-    .badge.approved { background: var(--ok-bg);      color: var(--ok-tx);      }
-    .badge.rejected { background: var(--booked-bg);  color: var(--booked-tx);  }
-
-    /* ── Booking cards ────────────────────────────────── */
-    .booking-card    { border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 0.75rem; background: rgba(255,255,255,0.92); }
-    .booking-top     { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.4rem; }
-    .booking-name    { font-family: 'Lora', serif; font-size: 16px; font-weight: 600; }
-    .booking-dates   { font-size: 14px; color: var(--muted); margin-bottom: 4px; }
-    .booking-meta    { font-size: 13px; color: var(--faint); margin-bottom: 0.75rem; }
-    .booking-msg     { font-size: 13px; font-style: italic; color: var(--muted); background: var(--cream); padding: 8px 12px; border-radius: 8px; margin-bottom: 0.75rem; }
-    .booking-actions { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-
-    /* ── Admin tabs ───────────────────────────────────── */
-    .tabs { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; overflow-x: auto; }
-    .tab  { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 10px 16px; border: none; background: none; color: var(--muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; white-space: nowrap; }
-    .tab.active { color: var(--forest); border-bottom-color: var(--forest); font-weight: 500; }
-    .tab:hover  { color: var(--text); }
-
-    /* ── Filter pills ─────────────────────────────────── */
-    .filters { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 1rem; }
-    .filter  { font-size: 12px; padding: 5px 14px; border-radius: 20px; border: 1px solid var(--border); background: rgba(255,255,255,0.7); color: var(--muted); cursor: pointer; font-family: 'DM Sans', sans-serif; }
-    .filter.active { background: var(--forest); color: #fff; border-color: var(--forest); }
-
-    /* ── Stats ────────────────────────────────────────── */
-    .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 1.5rem; }
-    .stat  { background: rgba(250,247,242,0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.875rem; text-align: center; }
-    .stat-num { font-size: 26px; font-weight: 600; }
-    .stat-lbl { font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: 0.5px; }
-
-    /* ── Gate ─────────────────────────────────────────── */
-    .gate { min-height: 65vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 2rem 1rem; }
-    .gate-box { background: rgba(255,255,255,0.90); backdrop-filter: blur(14px); border: 1px solid rgba(255,255,255,0.85); border-radius: 20px; box-shadow: var(--shadow); padding: 2.5rem 2rem; max-width: 360px; width: 100%; }
-    .gate-icon { font-size: 52px; margin-bottom: 1rem; }
-    .gate-box h2 { font-family: 'Lora', serif; font-size: 24px; margin-bottom: 0.5rem; }
-    .gate-box p  { font-size: 14px; color: var(--muted); margin-bottom: 1.75rem; }
-
-    @keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 60%{transform:translateX(7px)} }
-    .shake { animation: shake 0.35s ease; }
-
-    /* ── Success ──────────────────────────────────────── */
-    .success { text-align: center; padding: 2.5rem 1rem; }
-    .success-icon { font-size: 52px; display: block; margin-bottom: 1rem; }
-    .success h2 { font-family: 'Lora', serif; font-size: 22px; margin-bottom: 0.5rem; }
-    .success p  { font-size: 15px; color: var(--muted); margin-bottom: 1.5rem; }
-
-    /* ── Subscribe strip ──────────────────────────────── */
-    .subscribe-strip { margin-top: 1.25rem; background: rgba(255,255,255,0.90); border: 1px solid rgba(255,255,255,0.75); border-radius: var(--radius); padding: 1.25rem 1.5rem; backdrop-filter: blur(8px); box-shadow: var(--shadow); }
-    .subscribe-strip h3 { font-family: 'Lora', serif; font-size: 16px; margin-bottom: 4px; }
-    .subscribe-strip p  { font-size: 13px; color: var(--muted); margin-bottom: 0.875rem; }
-    .subscribe-row { display: flex; gap: 8px; flex-wrap: wrap; }
-    .subscribe-row .inp { flex: 1; min-width: 120px; font-size: 14px; padding: 9px 12px; }
-
-    /* ── Subscriber list ──────────────────────────────── */
-    .sub-row  { display: flex; align-items: center; justify-content: space-between; padding: 0.625rem 0; border-bottom: 1px solid var(--border); font-size: 14px; }
-    .sub-row:last-child { border-bottom: none; }
-    .sub-name  { font-weight: 500; }
-    .sub-email { color: var(--muted); font-size: 13px; }
-    .sub-src   { font-size: 11px; color: var(--faint); background: var(--cream); padding: 2px 8px; border-radius: 10px; flex-shrink: 0; margin-left: 8px; }
-
-    /* ── Broadcast ────────────────────────────────────── */
-    .broadcast-box { background: rgba(250,247,242,0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.25rem; margin-top: 1rem; }
-    .broadcast-box h3 { font-family: 'Lora', serif; font-size: 16px; margin-bottom: 1rem; }
-    .bcc-strip { background: rgba(255,255,255,0.92); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.75rem 1rem; font-size: 12px; color: var(--muted); word-break: break-all; margin-bottom: 1rem; max-height: 80px; overflow-y: auto; }
-
-    /* ── Misc ─────────────────────────────────────────── */
-    .empty   { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; border: 1px dashed var(--border); border-radius: var(--radius); }
-    .section-title { font-family: 'Lora', serif; font-size: 20px; font-weight: 600; margin-bottom: 1.25rem; }
-    .admin-topbar  { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; }
+    :root{--forest:#2D5016;--forest-dk:#1e3a0f;--card-bg:rgba(255,255,255,0.92);--border:#ddd8ce;--text:#1a1612;--muted:#6b6358;--faint:#9e9488;--pending-bg:#faecc8;--pending-tx:#7a4f00;--pending-bd:#e8c570;--booked-bg:#f0c4c4;--booked-tx:#8b1a1a;--booked-bd:#e09090;--ok-bg:#d4edda;--ok-tx:#1a5c2e;--radius:12px;--shadow:0 2px 10px rgba(0,0,0,0.09),0 1px 2px rgba(0,0,0,0.05)}
+    *{box-sizing:border-box;margin:0;padding:0}
+    html,body{font-family:'DM Sans',sans-serif;color:var(--text);min-height:100vh}
+    body::before{content:'';position:fixed;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,0.60) 0%,rgba(255,255,255,0.50) 50%,rgba(255,255,255,0.58) 100%),url('cabin-bg.jpg') center center/cover no-repeat;z-index:0}
+    #app{position:relative;z-index:1;min-height:100vh}
+    .wrap{max-width:1000px;margin:0 auto;padding:0 1rem 3rem}
+    .site-header{text-align:center;padding:2rem 1rem 1.5rem;margin-bottom:1.5rem}
+    .site-logo{font-family:'Lora',serif;font-size:clamp(26px,5vw,36px);font-weight:600;letter-spacing:-0.3px;text-shadow:0 1px 6px rgba(255,255,255,0.9)}
+    .site-sub{font-family:'Lora',serif;font-style:italic;font-size:14px;color:var(--muted);margin-top:4px}
+    .site-nav{display:flex;gap:8px;justify-content:center;margin-top:1.25rem;flex-wrap:wrap}
+    .site-nav button{font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 20px;border-radius:30px;border:1px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.72);color:var(--muted);cursor:pointer;transition:all .18s;backdrop-filter:blur(6px)}
+    .site-nav button:hover{background:rgba(255,255,255,0.95);color:var(--text)}
+    .site-nav button.active{background:var(--forest);color:#fff;border-color:var(--forest)}
+    .card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.72);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px)}
+    .card-pad{padding:1.25rem 1.5rem}
+    .three-months{display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem;margin-bottom:.875rem}
+    @media(max-width:680px){.three-months{grid-template-columns:1fr}}
+    @media(min-width:681px) and (max-width:860px){.three-months{grid-template-columns:1fr 1fr}}
+    .month-card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.72);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px);padding:1rem}
+    .cal-month-title{font-family:'Lora',serif;font-size:15px;font-weight:600;text-align:center;margin-bottom:.75rem}
+    table.cal{width:100%;border-collapse:collapse}
+    table.cal th{text-align:center;font-size:10px;font-weight:500;color:var(--faint);padding:4px 0;text-transform:uppercase;letter-spacing:.5px}
+    table.cal td{text-align:center;padding:1px}
+    .day{width:100%;aspect-ratio:1;max-width:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;font-size:12px;border:1px solid transparent}
+    .day.available{color:var(--text)}.day.past{color:#ccc}.day.today{border-color:var(--forest);color:var(--forest);font-weight:700}
+    .day.booked{background:var(--booked-bg);color:var(--booked-tx);border-color:var(--booked-bd);font-weight:500}
+    .day.pending{background:var(--pending-bg);color:var(--pending-tx);border-color:var(--pending-bd);font-weight:500}
+    .cal-nav-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem}
+    .cal-nav-row button{background:rgba(255,255,255,0.72);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:20px;color:var(--muted);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+    .cal-nav-row button:hover{background:rgba(255,255,255,0.98)}
+    .cal-nav-label{font-family:'Lora',serif;font-size:14px;color:var(--muted);font-style:italic}
+    .legend{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;padding:.75rem 0 0}
+    .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+    .legend-dot{width:12px;height:12px;border-radius:4px;border:1px solid;flex-shrink:0}
+    .btn{font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 18px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(255,255,255,0.85);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
+    .btn:hover{background:#fff}.btn:disabled{opacity:.5;cursor:default}
+    .btn-primary{background:var(--forest);color:#fff;border-color:var(--forest)}.btn-primary:hover{background:var(--forest-dk)}
+    .btn-danger{background:#8b1a1a;color:#fff;border-color:#8b1a1a}.btn-danger:hover{background:#6b1212}
+    .btn-full{width:100%;font-size:16px;padding:13px 24px}
+    .form-group{margin-bottom:1.25rem}
+    label.lbl{display:block;font-size:14px;font-weight:500;margin-bottom:6px}
+    input.inp,textarea.inp{width:100%;padding:11px 14px;font-size:16px;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.88);color:var(--text);appearance:none;transition:border-color .15s,box-shadow .15s}
+    input.inp:focus,textarea.inp:focus{outline:none;border-color:var(--forest);box-shadow:0 0 0 3px rgba(45,80,22,0.12);background:rgba(255,255,255,0.99)}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    @media(max-width:480px){.two-col{grid-template-columns:1fr}}
+    .hint{font-size:12px;color:var(--faint);margin-top:5px}.err{font-size:13px;color:var(--booked-tx);margin-top:6px}
+    .nights-note{font-size:13px;color:var(--forest);font-weight:500;margin-top:6px;margin-bottom:.5rem}
+    .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;text-transform:capitalize;white-space:nowrap}
+    .badge.pending{background:var(--pending-bg);color:var(--pending-tx)}.badge.approved{background:var(--ok-bg);color:var(--ok-tx)}.badge.rejected{background:var(--booked-bg);color:var(--booked-tx)}
+    .booking-card{border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:.75rem;background:rgba(255,255,255,0.92)}
+    .booking-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem;flex-wrap:wrap;gap:6px}
+    .booking-name{font-family:'Lora',serif;font-size:16px;font-weight:600}
+    .booking-dates{font-size:14px;color:var(--muted);margin-bottom:4px}
+    .booking-meta{font-size:13px;color:var(--faint);margin-bottom:.75rem}
+    .booking-note{font-size:13px;font-style:italic;color:var(--muted);background:rgba(250,247,242,0.95);padding:8px 12px;border-radius:8px;margin-bottom:.75rem}
+    .booking-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
+    .tab{font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+    .tab.active{color:var(--forest);border-bottom-color:var(--forest);font-weight:500}
+    .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
+    .filter{font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,0.7);color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+    .filter.active{background:var(--forest);color:#fff;border-color:var(--forest)}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.5rem}
+    .stat{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;text-align:center}
+    .stat-num{font-size:26px;font-weight:600}.stat-lbl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+    .gate{min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem 1rem}
+    .gate-box{background:rgba(255,255,255,0.90);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.85);border-radius:20px;box-shadow:var(--shadow);padding:2.5rem 2rem;max-width:360px;width:100%}
+    .gate-icon{font-size:52px;margin-bottom:1rem}
+    .gate-box h2{font-family:'Lora',serif;font-size:24px;margin-bottom:.5rem}
+    .gate-box p{font-size:14px;color:var(--muted);margin-bottom:1.75rem}
+    @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}60%{transform:translateX(7px)}}
+    .shake{animation:shake .35s ease}
+    .success{text-align:center;padding:2.5rem 1rem}
+    .success-icon{font-size:52px;display:block;margin-bottom:1rem}
+    .success h2{font-family:'Lora',serif;font-size:22px;margin-bottom:.5rem}
+    .success p{font-size:15px;color:var(--muted);margin-bottom:1.5rem}
+    .subscribe-strip{margin-top:1.25rem;background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.75);border-radius:var(--radius);padding:1.25rem 1.5rem;backdrop-filter:blur(8px);box-shadow:var(--shadow)}
+    .subscribe-strip h3{font-family:'Lora',serif;font-size:16px;margin-bottom:4px}
+    .subscribe-strip p{font-size:13px;color:var(--muted);margin-bottom:.875rem}
+    .subscribe-row{display:flex;gap:8px;flex-wrap:wrap}
+    .subscribe-row .inp{flex:1;min-width:120px;font-size:14px;padding:9px 12px}
+    .broadcast-box{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-top:1rem}
+    .broadcast-box h3{font-family:'Lora',serif;font-size:16px;margin-bottom:1rem}
+    .sub-row{display:flex;align-items:center;justify-content:space-between;padding:.625rem 0;border-bottom:1px solid var(--border);font-size:14px;gap:8px}
+    .sub-row:last-child{border-bottom:none}
+    .sub-name{font-weight:500}.sub-email{color:var(--muted);font-size:13px}
+    .sub-src{font-size:11px;color:var(--faint);background:rgba(250,247,242,0.95);padding:2px 8px;border-radius:10px;flex-shrink:0}
+    .bcc-strip{background:rgba(255,255,255,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:12px;color:var(--muted);word-break:break-all;margin-bottom:1rem;max-height:80px;overflow-y:auto}
+    .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--forest);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .loading-state{text-align:center;padding:2.5rem;color:var(--muted);font-size:14px}
+    .empty{text-align:center;padding:2rem;color:var(--muted);font-size:14px;border:1px dashed var(--border);border-radius:var(--radius)}
+    .section-title{font-family:'Lora',serif;font-size:20px;font-weight:600;margin-bottom:1.25rem}
+    .admin-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px}
+    .banner{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:1rem}
+    .banner.ok{background:var(--ok-bg);color:var(--ok-tx);border:1px solid #a8d5b5}
+    .banner.er{background:var(--booked-bg);color:var(--booked-tx);border:1px solid var(--booked-bd)}
+    .banner.in{background:var(--pending-bg);color:var(--pending-tx);border:1px solid var(--pending-bd)}
   </style>
 </head>
 <body>
-<div id="app">
-<div class="wrap">
+<div id="app"><div class="wrap">
 
-  <!-- ── GATE ─────────────────────────────────────────── -->
+  <!-- GATE -->
   <div id="screen-gate">
     <div class="site-header">
       <div class="site-logo">Glen Don Lodge</div>
@@ -335,128 +176,78 @@
         <h2>Welcome, family!</h2>
         <p>Enter the password from the WhatsApp group to access the cabin booking.</p>
         <div class="form-group">
-          <input class="inp" type="password" id="gate-input"
-            placeholder="Family password"
-            style="text-align:center;font-size:20px;letter-spacing:4px;"
+          <input class="inp" type="password" id="gate-input" placeholder="Family password"
+            style="text-align:center;font-size:20px;letter-spacing:4px"
             onkeydown="if(event.key==='Enter')tryGate()">
         </div>
-        <div id="gate-err" class="err" style="display:none;text-align:center;margin-bottom:0.75rem">
-          Wrong password — check the WhatsApp group.
-        </div>
+        <div id="gate-err" class="err" style="display:none;text-align:center;margin-bottom:.75rem">Wrong password — check the WhatsApp group.</div>
         <button class="btn btn-primary btn-full" onclick="tryGate()">Enter</button>
       </div>
     </div>
   </div>
 
-  <!-- ── MAIN APP ──────────────────────────────────────── -->
+  <!-- MAIN APP -->
   <div id="screen-app" style="display:none">
     <div class="site-header">
       <div class="site-logo">Glen Don Lodge</div>
       <div class="site-sub">The family cabin — book your stay</div>
       <nav class="site-nav">
         <button id="nav-calendar" class="active" onclick="showView('calendar')">📅 Calendar</button>
-        <button id="nav-request"               onclick="showView('request')">✉️ Request a Stay</button>
-        <button id="nav-admin"                 onclick="showView('admin')">🔑 Admin</button>
+        <button id="nav-request" onclick="showView('request')">✉️ Request a Stay</button>
+        <button id="nav-admin" onclick="showView('admin')">🔑 Admin</button>
       </nav>
     </div>
-
     <div id="view-calendar"></div>
     <div id="view-request" style="display:none"></div>
-    <div id="view-admin"   style="display:none"></div>
+    <div id="view-admin" style="display:none"></div>
   </div>
 
-</div>
-</div>
-
+</div></div>
 <script>
-// ════════════════════════════════════════════════════════
-//  CONFIG — fill in your values here before deploying
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════
+//  CONFIG — only one URL to fill in!
+// ══════════════════════════════════════════
 const CONFIG = {
-  passwords: {
-    family: 'glendon25',
-    admin:  'glendon',
-  },
-  firebase: {
-    apiKey:            "YOUR_API_KEY",
-    authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-    projectId:         "YOUR_PROJECT_ID",
-    storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-    messagingSenderId: "YOUR_SENDER_ID",
-    appId:             "YOUR_APP_ID"
-  },
-  emailjs: {
-    publicKey: 'YOUR_EMAILJS_PUBLIC_KEY',
-    serviceId: 'YOUR_EMAILJS_SERVICE_ID',
-    templates: {
-      confirm:   'template_confirm',
-      approved:  'template_approved',
-      declined:  'template_declined',
-      broadcast: 'template_broadcast',
-    }
-  }
+  passwords: { family:'glendon25', admin:'glendon' },
+  scriptUrl: 'YOUR_APPS_SCRIPT_WEB_APP_URL'
 };
-// ════════════════════════════════════════════════════════
+// ══════════════════════════════════════════
 
-let db;
-try { firebase.initializeApp(CONFIG.firebase); db = firebase.firestore(); }
-catch(e) { console.warn('Firebase not configured:', e.message); }
+let bookings=[],subscribers=[],calOffset=0;
+let adminLoggedIn=false,adminTab='requests',adminFilter='all';
+let reqSuccess=false,currentView='calendar',isLoading=false;
+const today=new Date();
+const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
-const emailConfigured = () => CONFIG.emailjs.publicKey && !CONFIG.emailjs.publicKey.startsWith('YOUR_');
-if (emailConfigured()) emailjs.init(CONFIG.emailjs.publicKey);
-
-let bookings=[], subscribers=[], calOffset=0;
-let adminLoggedIn=false, adminTab='requests', adminFilter='all';
-let reqSuccess=false, currentView='calendar';
-const today = new Date();
-const MONTHS = ['January','February','March','April','May','June','July','August','September','October','November','December'];
-
-// ── Firebase listeners ─────────────────────────────────
-function startListeners() {
-  if (!db) return;
-  db.collection('bookings').orderBy('checkIn').onSnapshot(snap => {
-    bookings = snap.docs.map(d=>({id:d.id,...d.data()}));
-    if (currentView==='calendar') renderCalendar();
-    if (currentView==='admin' && adminLoggedIn) renderAdminContent();
-  });
-  db.collection('subscribers').orderBy('subscribedAt').onSnapshot(snap => {
-    subscribers = snap.docs.map(d=>({id:d.id,...d.data()}));
-    if (currentView==='admin' && adminLoggedIn) renderAdminContent();
-  });
+async function api(params){
+  if(CONFIG.scriptUrl.startsWith('YOUR_')){console.warn('Script URL not set');return{error:'not_configured'};}
+  try{
+    const url=CONFIG.scriptUrl+'?'+new URLSearchParams(params).toString();
+    const res=await fetch(url,{redirect:'follow'});
+    return JSON.parse(await res.text());
+  }catch(e){console.error('API:',e);return{error:e.message};}
 }
 
-async function addBooking(data) { if (!db){bookings.push({id:uid(),...data});return;} await db.collection('bookings').add(data); }
-async function updateBookingStatus(id,status) { if(!db){const b=bookings.find(x=>x.id===id);if(b)b.status=status;return;} await db.collection('bookings').doc(id).update({status}); }
-async function removeBooking(id) { if(!db){bookings=bookings.filter(x=>x.id!==id);return;} await db.collection('bookings').doc(id).delete(); }
-async function addSubscriber(name,email) {
-  const rec={name,email,source:'subscribe',subscribedAt:new Date().toISOString()};
-  if(!db){subscribers.push({id:uid(),...rec});return;}
-  const ex=await db.collection('subscribers').where('email','==',email).get();
-  if(!ex.empty) return;
-  await db.collection('subscribers').add(rec);
+async function loadData(){
+  isLoading=true;
+  const d=await api({action:'getAll'});
+  if(!d.error){bookings=d.bookings||[];subscribers=d.subscribers||[];}
+  isLoading=false;
 }
-async function removeSubscriber(id) { if(!db){subscribers=subscribers.filter(x=>x.id!==id);return;} await db.collection('subscribers').doc(id).delete(); }
 
-async function sendEmail(tpl,params) {
-  if(!emailConfigured()) return;
-  try{ await emailjs.send(CONFIG.emailjs.serviceId,tpl,{to_email:params.email,to_name:params.name,...params}); }
-  catch(e){console.error('EmailJS:',e);}
-}
-function makeEmailParams(b){ return {email:b.email,name:b.name,check_in:fmtDate(b.checkIn),check_out:fmtDate(b.checkOut),nights:nightCount(b.checkIn,b.checkOut),guests:b.guests}; }
-
-function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
-function fmtDate(d){ return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'}); }
-function nightCount(a,b){ return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000); }
-function todayStr(){ return today.toISOString().slice(0,10); }
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+function fmtDate(d){return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
+function nightCount(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
+function todayStr(){return today.toISOString().slice(0,10);}
 
 function getBlockedDates(){
   const ap={},pe={};
   bookings.forEach(b=>{
-    if(b.status==='rejected') return;
+    if(b.status==='rejected')return;
     const d=new Date(b.checkIn+'T12:00:00'),end=new Date(b.checkOut+'T12:00:00');
     while(d<end){const k=d.toISOString().slice(0,10);if(b.status==='approved')ap[k]=b;else pe[k]=b;d.setDate(d.getDate()+1);}
   });
-  return {approved:ap,pending:pe};
+  return{approved:ap,pending:pe};
 }
 
 function allEmails(){
@@ -466,17 +257,21 @@ function allEmails(){
   return Object.values(map);
 }
 
-// ── Gate ───────────────────────────────────────────────
+function makeEmailData(b){
+  return{name:b.name,email:b.email,checkIn:fmtDate(b.checkIn),checkOut:fmtDate(b.checkOut),nights:nightCount(b.checkIn,b.checkOut),guests:b.guests};
+}
+
 function tryGate(){
-  if(document.getElementById('gate-input').value.toLowerCase()===CONFIG.passwords.family.toLowerCase()){
+  const pw=document.getElementById('gate-input').value;
+  if(pw.toLowerCase()===CONFIG.passwords.family.toLowerCase()){
     document.getElementById('screen-gate').style.display='none';
     document.getElementById('screen-app').style.display='';
-    startListeners(); showView('calendar');
-  } else {
+    loadData().then(()=>showView('calendar'));
+  }else{
     document.getElementById('gate-err').style.display='block';
     const inp=document.getElementById('gate-input');
-    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
-    inp.value=''; inp.focus();
+    inp.classList.remove('shake');void inp.offsetWidth;inp.classList.add('shake');
+    inp.value='';inp.focus();
   }
 }
 
@@ -484,24 +279,21 @@ function showView(v){
   currentView=v;
   ['calendar','request','admin'].forEach(n=>{
     document.getElementById('view-'+n).style.display=n===v?'':'none';
-    const btn=document.getElementById('nav-'+n); if(btn)btn.classList.toggle('active',n===v);
+    const btn=document.getElementById('nav-'+n);if(btn)btn.classList.toggle('active',n===v);
   });
   if(v==='calendar')renderCalendar();
   else if(v==='request')renderRequest();
   else if(v==='admin')renderAdmin();
 }
 
-// ══════════════════════════════════════════════════════
-//  CALENDAR — 3 months
-// ══════════════════════════════════════════════════════
 function buildMonthHTML(year,month,approved,pending){
-  const ts=todayStr(), startDay=new Date(year,month,1).getDay(), daysInMonth=new Date(year,month+1,0).getDate();
+  const ts=todayStr(),sd=new Date(year,month,1).getDay(),dim=new Date(year,month+1,0).getDate();
   let rows='';
   for(let row=0;row<6;row++){
     let cells='';
     for(let col=0;col<7;col++){
-      const n=row*7+col-startDay+1;
-      if(n<1||n>daysInMonth){cells+='<td></td>';continue;}
+      const n=row*7+col-sd+1;
+      if(n<1||n>dim){cells+='<td></td>';continue;}
       const ds=`${year}-${String(month+1).padStart(2,'0')}-${String(n).padStart(2,'0')}`;
       let cls='day';
       if(approved[ds])cls+=' booked';
@@ -512,23 +304,22 @@ function buildMonthHTML(year,month,approved,pending){
       cells+=`<td><span class="${cls}">${n}</span></td>`;
     }
     rows+=`<tr>${cells}</tr>`;
-    if(row*7+6-startDay+1>=daysInMonth)break;
+    if(row*7+6-sd+1>=dim)break;
   }
-  return `<div class="cal-month-title">${MONTHS[month]} ${year}</div>
-    <table class="cal"><thead><tr><th>S</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return`<div class="cal-month-title">${MONTHS[month]} ${year}</div><table class="cal"><thead><tr><th>S</th><th>M</th><th>T</th><th>W</th><th>T</th><th>F</th><th>S</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function renderCalendar(){
   const el=document.getElementById('view-calendar');
-  const {approved,pending}=getBlockedDates();
+  if(isLoading){el.innerHTML='<div class="loading-state"><span class="spinner"></span>Loading calendar…</div>';return;}
+  const{approved,pending}=getBlockedDates();
   let months='';
   for(let i=0;i<3;i++){
-    let m=today.getMonth()+calOffset+i, y=today.getFullYear()+Math.floor(m/12);
+    let m=today.getMonth()+calOffset+i,y=today.getFullYear()+Math.floor(m/12);
     m=((m%12)+12)%12;
     months+=`<div class="month-card">${buildMonthHTML(y,m,approved,pending)}</div>`;
   }
-  const s0=((today.getMonth()+calOffset)%12+12)%12;
-  const s2=((today.getMonth()+calOffset+2)%12+12)%12;
+  const s0=((today.getMonth()+calOffset)%12+12)%12,s2=((today.getMonth()+calOffset+2)%12+12)%12;
   el.innerHTML=`
     <div class="cal-nav-row">
       <button onclick="calOffset=Math.max(0,calOffset-3);renderCalendar()">&#8249;</button>
@@ -548,7 +339,7 @@ function renderCalendar(){
       <h3>📬 Stay in the loop</h3>
       <p>Leave your email for cabin updates — season openings, news, and booking reminders.</p>
       <div class="subscribe-row">
-        <input class="inp" type="text"  id="sub-name"  placeholder="Your name" style="flex:0.7;min-width:100px">
+        <input class="inp" type="text" id="sub-name" placeholder="Your name" style="flex:0.7;min-width:100px">
         <input class="inp" type="email" id="sub-email" placeholder="your@email.com" style="min-width:140px">
         <button class="btn btn-primary" id="sub-btn" onclick="handleSubscribe()">Subscribe</button>
       </div>
@@ -557,19 +348,18 @@ function renderCalendar(){
 }
 
 async function handleSubscribe(){
-  const name=document.getElementById('sub-name').value.trim(), email=document.getElementById('sub-email').value.trim();
-  const msgEl=document.getElementById('sub-msg'), btn=document.getElementById('sub-btn');
+  const name=document.getElementById('sub-name').value.trim(),email=document.getElementById('sub-email').value.trim();
+  const msgEl=document.getElementById('sub-msg'),btn=document.getElementById('sub-btn');
   if(!name||!email||!email.includes('@')){msgEl.textContent='Please enter your name and a valid email.';msgEl.style.color='var(--booked-tx)';msgEl.style.display='block';return;}
   btn.disabled=true;btn.textContent='Saving…';
-  await addSubscriber(name,email);
+  const rec={id:uid(),name,email,subscribedAt:new Date().toISOString()};
+  await api({action:'addSubscriber',data:JSON.stringify(rec)});
+  subscribers.push(rec);
   msgEl.textContent='✓ You\'re on the list!';msgEl.style.color='var(--ok-tx)';msgEl.style.display='block';
   document.getElementById('sub-name').value='';document.getElementById('sub-email').value='';
   btn.disabled=false;btn.textContent='Subscribe';
 }
 
-// ══════════════════════════════════════════════════════
-//  REQUEST VIEW
-// ══════════════════════════════════════════════════════
 function renderRequest(){
   const el=document.getElementById('view-request');
   if(reqSuccess){
@@ -585,7 +375,7 @@ function renderRequest(){
     <div class="section-title">Request a Stay</div>
     <div class="two-col">
       <div class="form-group"><label class="lbl">Your name</label><input class="inp" type="text" id="f-name" placeholder="e.g. Gran &amp; Grandad" autocomplete="name"></div>
-      <div class="form-group"><label class="lbl">Email address</label><input class="inp" type="email" id="f-email" placeholder="your@email.com" autocomplete="email"><div class="hint">We'll send your confirmation here</div></div>
+      <div class="form-group"><label class="lbl">Email address</label><input class="inp" type="email" id="f-email" placeholder="your@email.com" autocomplete="email"><div class="hint">You'll get a confirmation here</div></div>
     </div>
     <div class="form-group"><label class="lbl">Phone <span style="font-weight:400;color:var(--faint)">(optional)</span></label><input class="inp" type="tel" id="f-phone" placeholder="In case we need to reach you" autocomplete="tel"></div>
     <div class="two-col">
@@ -593,11 +383,11 @@ function renderRequest(){
       <div class="form-group"><label class="lbl">Check-out date</label><input class="inp" type="date" id="f-out" min="${ts}" onchange="updateNights()"></div>
     </div>
     <div id="nights-note"></div>
-    <div class="form-group" style="margin-top:0.25rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
+    <div class="form-group" style="margin-top:.25rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
     <div class="form-group"><label class="lbl">Notes <span style="font-weight:400;color:var(--faint)">(optional)</span></label><textarea class="inp" id="f-note" rows="3" placeholder="e.g. celebrating a birthday, bringing a dog…"></textarea></div>
     <div id="req-err" class="err" style="display:none"></div>
     <button class="btn btn-primary btn-full" id="req-submit" onclick="submitRequest()">Send Booking Request</button>
-    <p class="hint" style="text-align:center;margin-top:0.75rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
+    <p class="hint" style="text-align:center;margin-top:.75rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
   </div>`;
 }
 
@@ -619,13 +409,13 @@ async function submitRequest(){
   if(!checkOut){showReqErr('Please choose a check-out date.');return;}
   if(checkOut<=checkIn){showReqErr('Check-out must be after check-in.');return;}
   if(!guests||guests<1){showReqErr('Please enter the number of guests.');return;}
-  if(checkIn<todayStr()){showReqErr('Check-in date cannot be in the past.');return;}
+  if(checkIn<todayStr()){showReqErr('Check-in cannot be in the past.');return;}
   const{approved}=getBlockedDates(),d=new Date(checkIn+'T12:00:00'),end=new Date(checkOut+'T12:00:00');
-  while(d<end){if(approved[d.toISOString().slice(0,10)]){showReqErr('Those dates overlap with an existing booking. Please check the calendar and choose different dates.');return;}d.setDate(d.getDate()+1);}
+  while(d<end){if(approved[d.toISOString().slice(0,10)]){showReqErr('Those dates overlap with an existing booking. Please check the calendar.');return;}d.setDate(d.getDate()+1);}
   btn.disabled=true;btn.textContent='Sending…';
-  const booking={name,email,phone,checkIn,checkOut,guests:parseInt(guests),note,status:'pending',requestedAt:new Date().toISOString()};
-  await addBooking(booking);
-  await sendEmail(CONFIG.emailjs.templates.confirm,makeEmailParams(booking));
+  const booking={id:uid(),name,email,phone,checkIn,checkOut,guests:parseInt(guests),note,status:'pending',requestedAt:new Date().toISOString()};
+  await api({action:'addBooking',data:JSON.stringify({...booking,nights:nightCount(checkIn,checkOut)})});
+  bookings.push(booking);
   reqSuccess=true;renderRequest();
 }
 
@@ -634,32 +424,40 @@ function showReqErr(msg){
   const btn=document.getElementById('req-submit');if(btn){btn.disabled=false;btn.textContent='Send Booking Request';}
 }
 
-// ══════════════════════════════════════════════════════
-//  ADMIN VIEW
-// ══════════════════════════════════════════════════════
 function renderAdmin(){
   const el=document.getElementById('view-admin');
   if(!adminLoggedIn){
     el.innerHTML=`<div class="card card-pad" style="max-width:360px;margin:0 auto">
       <div class="section-title" style="text-align:center">Admin login</div>
       <p style="font-size:14px;color:var(--muted);text-align:center;margin-bottom:1.5rem">Only the cabin manager uses this section.</p>
-      <div class="form-group"><label class="lbl" for="a-pass">Password</label><input class="inp" type="password" id="a-pass" placeholder="Admin password" onkeydown="if(event.key==='Enter')tryAdminLogin()"></div>
+      <div class="form-group"><label class="lbl">Password</label><input class="inp" type="password" id="a-pass" placeholder="Admin password" onkeydown="if(event.key==='Enter')tryAdminLogin()"></div>
       <div id="a-err" class="err" style="display:none">Wrong password — try again.</div>
-      <button class="btn btn-primary btn-full" style="margin-top:0.75rem" onclick="tryAdminLogin()">Login</button>
+      <button class="btn btn-primary btn-full" style="margin-top:.75rem" onclick="tryAdminLogin()">Login</button>
     </div>`;return;
   }
   el.innerHTML=`<div class="card card-pad">
     <div class="admin-topbar">
       <div class="section-title" style="margin:0">Admin panel</div>
-      <button class="btn" onclick="adminLoggedIn=false;renderAdmin()" style="font-size:13px">Logout</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn" id="refresh-btn" onclick="doRefresh()" style="font-size:13px">↻ Refresh</button>
+        <button class="btn" onclick="adminLoggedIn=false;renderAdmin()" style="font-size:13px">Logout</button>
+      </div>
     </div>
     <div class="tabs">
       <button class="tab ${adminTab==='requests'?'active':''}"    onclick="setAdminTab('requests')">Bookings</button>
-      <button class="tab ${adminTab==='broadcast'?'active':''}"   onclick="setAdminTab('broadcast')">Broadcast</button>
+      <button class="tab ${adminTab==='broadcast'?'active':''}"   onclick="setAdminTab('broadcast')">Broadcast email</button>
       <button class="tab ${adminTab==='subscribers'?'active':''}" onclick="setAdminTab('subscribers')">Email list</button>
     </div>
     <div id="admin-tab-content"></div>
   </div>`;
+  renderAdminContent();
+}
+
+async function doRefresh(){
+  const btn=document.getElementById('refresh-btn');if(!btn)return;
+  btn.textContent='↻ Loading…';btn.disabled=true;
+  await loadData();
+  btn.textContent='↻ Refresh';btn.disabled=false;
   renderAdminContent();
 }
 
@@ -675,74 +473,108 @@ function setAdminTab(t){adminTab=t;renderAdmin();}
 
 function renderAdminRequests(el){
   const c={pending:0,approved:0,rejected:0};bookings.forEach(b=>c[b.status]++);
-  const filtered=(adminFilter==='all'?[...bookings]:bookings.filter(b=>b.status===adminFilter)).sort((a,b)=>new Date(a.checkIn)-new Date(b.checkIn));
+  const filtered=(adminFilter==='all'?[...bookings]:bookings.filter(b=>b.status===adminFilter))
+    .sort((a,b)=>new Date(a.checkIn)-new Date(b.checkIn));
   const cards=filtered.length===0
     ?`<div class="empty">No ${adminFilter==='all'?'':adminFilter+' '}bookings yet.</div>`
-    :filtered.map(b=>{const n=nightCount(b.checkIn,b.checkOut);return`<div class="booking-card">
-      <div class="booking-top"><div class="booking-name">${b.name}</div><span class="badge ${b.status}">${b.status}</span></div>
-      <div class="booking-dates">${fmtDate(b.checkIn)} → ${fmtDate(b.checkOut)} &nbsp;·&nbsp; ${n} night${n!==1?'s':''}</div>
-      <div class="booking-meta">${b.guests} guest${b.guests!==1?'s':''} &nbsp;·&nbsp; ${b.email}${b.phone?' &nbsp;·&nbsp; '+b.phone:''}</div>
-      ${b.note?`<div class="booking-msg">"${b.note}"</div>`:''}
-      <div class="booking-actions">
-        ${b.status!=='approved'?`<button class="btn btn-primary" onclick="adminApprove('${b.id}')">Approve</button>`:''}
-        ${b.status!=='rejected'?`<button class="btn btn-danger" onclick="adminDecline('${b.id}')">Decline</button>`:''}
-        ${b.status!=='pending'?`<button class="btn" onclick="adminReset('${b.id}')">Reset</button>`:''}
-        <button class="btn" onclick="adminDelete('${b.id}')" style="margin-left:auto;color:var(--faint)">Delete</button>
-      </div>
-    </div>`;}).join('');
+    :filtered.map(b=>{
+      const n=nightCount(b.checkIn,b.checkOut);
+      return`<div class="booking-card">
+        <div class="booking-top"><div class="booking-name">${b.name}</div><span class="badge ${b.status}">${b.status}</span></div>
+        <div class="booking-dates">${fmtDate(b.checkIn)} → ${fmtDate(b.checkOut)} &nbsp;·&nbsp; ${n} night${n!==1?'s':''}</div>
+        <div class="booking-meta">${b.guests} guest${b.guests!=='1'&&b.guests!==1?'s':''} &nbsp;·&nbsp; ${b.email}${b.phone?' &nbsp;·&nbsp; '+b.phone:''}</div>
+        ${b.note?`<div class="booking-note">"${b.note}"</div>`:''}
+        <div class="booking-actions">
+          ${b.status!=='approved'?`<button class="btn btn-primary" onclick="adminApprove('${b.id}')">Approve</button>`:''}
+          ${b.status!=='rejected'?`<button class="btn btn-danger" onclick="adminDecline('${b.id}')">Decline</button>`:''}
+          ${b.status!=='pending'?`<button class="btn" onclick="adminReset('${b.id}')">Reset</button>`:''}
+          <button class="btn" onclick="adminDelete('${b.id}')" style="margin-left:auto;color:var(--faint)">Delete</button>
+        </div>
+      </div>`;
+    }).join('');
   el.innerHTML=`<div class="stats">
     <div class="stat"><div class="stat-num">${c.pending}</div><div class="stat-lbl">Pending</div></div>
     <div class="stat"><div class="stat-num">${c.approved}</div><div class="stat-lbl">Approved</div></div>
     <div class="stat"><div class="stat-num">${c.rejected}</div><div class="stat-lbl">Declined</div></div>
   </div>
   <div class="filters">
-    <button class="filter ${adminFilter==='all'?'active':''}"      onclick="setFilter('all')">All</button>
-    <button class="filter ${adminFilter==='pending'?'active':''}"  onclick="setFilter('pending')">Pending</button>
+    <button class="filter ${adminFilter==='all'?'active':''}" onclick="setFilter('all')">All</button>
+    <button class="filter ${adminFilter==='pending'?'active':''}" onclick="setFilter('pending')">Pending</button>
     <button class="filter ${adminFilter==='approved'?'active':''}" onclick="setFilter('approved')">Approved</button>
     <button class="filter ${adminFilter==='rejected'?'active':''}" onclick="setFilter('rejected')">Declined</button>
   </div>${cards}`;
 }
 
-async function adminApprove(id){await updateBookingStatus(id,'approved');const b=bookings.find(x=>x.id===id);if(b)await sendEmail(CONFIG.emailjs.templates.approved,makeEmailParams(b));}
-async function adminDecline(id){await updateBookingStatus(id,'rejected');const b=bookings.find(x=>x.id===id);if(b)await sendEmail(CONFIG.emailjs.templates.declined,makeEmailParams(b));}
-async function adminReset(id){await updateBookingStatus(id,'pending');}
-async function adminDelete(id){if(confirm('Delete this booking?'))await removeBooking(id);}
+async function adminApprove(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  b.status='approved';renderAdminContent();
+  await api({action:'updateBooking',id,status:'approved',emailData:JSON.stringify(makeEmailData(b))});
+}
+async function adminDecline(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  b.status='rejected';renderAdminContent();
+  await api({action:'updateBooking',id,status:'rejected',emailData:JSON.stringify(makeEmailData(b))});
+}
+async function adminReset(id){
+  const b=bookings.find(x=>x.id===id);if(!b)return;
+  b.status='pending';renderAdminContent();
+  await api({action:'updateBooking',id,status:'pending'});
+}
+async function adminDelete(id){
+  if(!confirm('Delete this booking?'))return;
+  bookings=bookings.filter(x=>x.id!==id);renderAdminContent();
+  await api({action:'deleteBooking',id});
+}
 function setFilter(f){adminFilter=f;renderAdminContent();}
 
 function renderAdminBroadcast(el){
   const emails=allEmails();
-  el.innerHTML=`<p style="font-size:14px;color:var(--muted);margin-bottom:1rem">Send a message to everyone who has booked or subscribed — ${emails.length} people.</p>
-  <div class="broadcast-box"><h3>✉️ Compose broadcast</h3>
-    <div class="form-group"><label class="lbl">Subject</label><input class="inp" type="text" id="bc-subject" placeholder="e.g. Glen Don Lodge is open for summer! 🌿"></div>
-    <div class="form-group"><label class="lbl">Message</label><textarea class="inp" id="bc-body" rows="5" placeholder="Write your message here…"></textarea></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="sendBroadcast()">Send via EmailJS (${emails.length} emails)</button>
-      <button class="btn" onclick="openBccMailto()">Open in my email app</button>
+  el.innerHTML=`
+    <p style="font-size:14px;color:var(--muted);margin-bottom:1.25rem">
+      Compose a message for everyone who has booked or subscribed — <strong>${emails.length} people</strong>.
+      Sent directly from your Gmail via the Apps Script, no extra services needed.
+    </p>
+    <div class="broadcast-box">
+      <h3>✉️ Compose broadcast</h3>
+      <div class="form-group"><label class="lbl">Subject</label><input class="inp" type="text" id="bc-subject" placeholder="e.g. Glen Don Lodge is open for summer! 🌿"></div>
+      <div class="form-group"><label class="lbl">Message</label><textarea class="inp" id="bc-body" rows="6" placeholder="Write your message here…&#10;&#10;A sign-off and unsubscribe note are added automatically."></textarea></div>
+      <div id="bc-status" style="display:none;margin-bottom:1rem"></div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-primary" id="bc-send" onclick="sendBroadcast()">Send to ${emails.length} people</button>
+        <button class="btn" onclick="openBccMailto()">Open in my email app</button>
+      </div>
+      <p class="hint" style="margin-top:.75rem">
+        <strong>Send via site</strong> — emails arrive from your own Gmail address.<br>
+        <strong>Email app</strong> — opens your mail client with all addresses in BCC.
+      </p>
     </div>
-    <div id="bc-status" style="display:none;margin-top:0.75rem;font-size:14px"></div>
-    <p class="hint" style="margin-top:0.75rem"><strong>EmailJS</strong> sends individually (200/month free). <strong>Email app</strong> opens your mail client with all in BCC — unlimited and free.</p>
-  </div>
-  ${emails.length>0?`<div style="margin-top:1.25rem">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem">
-      <span style="font-size:13px;font-weight:500">BCC list (${emails.length} addresses)</span>
-      <button class="btn" onclick="copyBcc()" style="font-size:12px;padding:5px 12px">Copy all</button>
-    </div>
-    <div class="bcc-strip">${emails.map(e=>e.email).join(', ')}</div>
-  </div>`:'<div class="empty" style="margin-top:1rem">No emails collected yet.</div>'}`;
+    ${emails.length>0?`
+    <div style="margin-top:1.25rem">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.5rem">
+        <span style="font-size:13px;font-weight:500">Recipients (${emails.length})</span>
+        <button class="btn" onclick="copyBcc()" style="font-size:12px;padding:5px 12px">Copy all emails</button>
+      </div>
+      <div class="bcc-strip">${emails.map(e=>e.email).join(', ')}</div>
+    </div>`:'<div class="empty" style="margin-top:1rem">No emails collected yet.</div>'}`;
 }
 
 async function sendBroadcast(){
-  const subject=document.getElementById('bc-subject').value.trim(),body=document.getElementById('bc-body').value.trim();
-  const statusEl=document.getElementById('bc-status');
-  if(!subject||!body){alert('Please fill in the subject and message.');return;}
-  if(!emailConfigured()){statusEl.textContent='⚠ EmailJS not configured yet.';statusEl.style.color='var(--booked-tx)';statusEl.style.display='block';return;}
-  const emails=allEmails();if(emails.length===0){alert('No emails to send to yet.');return;}
-  if(!confirm(`Send to ${emails.length} people?`))return;
-  statusEl.textContent=`Sending… (0 / ${emails.length})`;statusEl.style.color='var(--ok-tx)';statusEl.style.display='block';
-  let sent=0;
-  for(const e of emails){await sendEmail(CONFIG.emailjs.templates.broadcast,{email:e.email,name:e.name,broadcast_subject:subject,broadcast_message:body});sent++;statusEl.textContent=`Sending… (${sent} / ${emails.length})`;}
-  statusEl.textContent=`✓ Sent to ${sent} people!`;
-  document.getElementById('bc-subject').value='';document.getElementById('bc-body').value='';
+  const subject=document.getElementById('bc-subject').value.trim(),message=document.getElementById('bc-body').value.trim();
+  const statusEl=document.getElementById('bc-status'),btn=document.getElementById('bc-send');
+  const emails=allEmails();
+  if(!subject||!message){alert('Please fill in the subject and message.');return;}
+  if(emails.length===0){alert('No email addresses collected yet.');return;}
+  if(!confirm(`Send this to ${emails.length} people from your Gmail?`))return;
+  btn.disabled=true;btn.textContent='Sending…';
+  statusEl.className='banner in';statusEl.textContent=`Sending to ${emails.length} people…`;statusEl.style.display='block';
+  const result=await api({action:'broadcast',subject,message,recipients:JSON.stringify(emails)});
+  if(result.error){
+    statusEl.className='banner er';statusEl.textContent='Something went wrong. Try the "email app" option instead.';
+  }else{
+    statusEl.className='banner ok';statusEl.textContent=`✓ Sent to ${result.sent||emails.length} people!`;
+    document.getElementById('bc-subject').value='';document.getElementById('bc-body').value='';
+  }
+  btn.disabled=false;btn.textContent=`Send to ${emails.length} people`;
 }
 
 function openBccMailto(){
@@ -752,17 +584,22 @@ function openBccMailto(){
 
 function copyBcc(){
   navigator.clipboard.writeText(allEmails().map(e=>e.email).join(', ')).then(()=>{
-    const btn=event.target;btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy all',2000);
+    const btn=event.target;btn.textContent='Copied!';setTimeout(()=>btn.textContent='Copy all emails',2000);
   });
 }
 
 function renderAdminSubscribers(el){
   const emails=allEmails();
-  if(emails.length===0){el.innerHTML='<div class="empty">No emails yet. They\'ll appear here once people book or subscribe.</div>';return;}
-  el.innerHTML=`<p style="font-size:14px;color:var(--muted);margin-bottom:1.25rem">${emails.length} unique email address${emails.length!==1?'es':''} — bookings + subscribers combined.</p>
+  if(emails.length===0){el.innerHTML='<div class="empty">No emails yet — they appear here once people book or subscribe.</div>';return;}
+  el.innerHTML=`<p style="font-size:14px;color:var(--muted);margin-bottom:1.25rem">${emails.length} unique email address${emails.length!==1?'es':''} — bookings and subscribers combined.</p>
   <div class="card card-pad">${emails.map(e=>`<div class="sub-row"><div><div class="sub-name">${e.name}</div><div class="sub-email">${e.email}</div></div><span class="sub-src">${e.source==='booking'?'📅 booking':'📬 subscriber'}</span></div>`).join('')}</div>
-  ${subscribers.length>0?`<p style="font-size:12px;color:var(--faint);margin-top:1rem;margin-bottom:0.5rem">Remove from subscriber list:</p>
-  ${subscribers.map(s=>`<div class="sub-row"><span style="font-size:13px">${s.name} — ${s.email}</span><button class="btn" onclick="removeSubscriber('${s.id}').then(renderAdminContent)" style="font-size:12px;padding:4px 10px">Remove</button></div>`).join('')}`:''}`;
+  ${subscribers.length>0?`<p style="font-size:12px;color:var(--faint);margin:1rem 0 .5rem">Remove from subscriber list:</p>
+  ${subscribers.map(s=>`<div class="sub-row"><span style="font-size:13px">${s.name} — ${s.email}</span><button class="btn" onclick="removeSub('${s.id}')" style="font-size:12px;padding:4px 10px">Remove</button></div>`).join('')}`:''}`;
+}
+
+async function removeSub(id){
+  subscribers=subscribers.filter(x=>x.id!==id);renderAdminContent();
+  await api({action:'deleteSubscriber',id});
 }
 
 function tryAdminLogin(){
