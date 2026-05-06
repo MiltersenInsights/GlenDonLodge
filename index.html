@@ -208,7 +208,7 @@
 //  CONFIG — only one URL to fill in!
 // ══════════════════════════════════════════
 const CONFIG = {
-  passwords: { family:'glendon0825', admin:'virginia0825' },
+  passwords: { family:'glendon', admin:'glendon25' },
   scriptUrl: 'https://script.google.com/macros/s/AKfycbwYFaTxRhmejZ17cD2XThnYbWIidcJvhuA-WFnFtZwbh07J0BkU0OJwblZV_XxVk7if/exec'
 };
 // ══════════════════════════════════════════
@@ -243,9 +243,21 @@ function todayStr(){return today.toISOString().slice(0,10);}
 function getBlockedDates(){
   const ap={},pe={};
   bookings.forEach(b=>{
-    if(b.status==='rejected')return;
-    const d=new Date(b.checkIn+'T12:00:00'),end=new Date(b.checkOut+'T12:00:00');
-    while(d<end){const k=d.toISOString().slice(0,10);if(b.status==='approved')ap[k]=b;else pe[k]=b;d.setDate(d.getDate()+1);}
+    // Trim status in case Google Sheets adds whitespace
+    const status=(b.status||'').trim();
+    if(status==='rejected') return;
+    // Slice to 10 chars (YYYY-MM-DD) to handle any extra time/timezone data
+    const ci=(b.checkIn||'').trim().slice(0,10);
+    const co=(b.checkOut||'').trim().slice(0,10);
+    if(!ci||!co) return;
+    const d=new Date(ci+'T12:00:00'), end=new Date(co+'T12:00:00');
+    // Guard against unparseable dates
+    if(isNaN(d.getTime())||isNaN(end.getTime())) return;
+    while(d<end){
+      const k=d.toISOString().slice(0,10);
+      if(status==='approved') ap[k]=b; else pe[k]=b;
+      d.setDate(d.getDate()+1);
+    }
   });
   return{approved:ap,pending:pe};
 }
