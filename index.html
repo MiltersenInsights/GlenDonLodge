@@ -204,18 +204,51 @@
 
 </div></div>
 <script>
-// ══════════════════════════════════════════
-//  CONFIG — only one URL to fill in!
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
+//  CONFIG
+//  Passwords are stored as SHA-256 hashes — the real words are
+//  never visible in source. To change a password, run this in
+//  your browser console and paste the result here:
+//    crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourword'))
+//      .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+// ══════════════════════════════════════════════════════════════
 const CONFIG = {
-  passwords: { family:'glendon', admin:'glendon25' },
+  hashes: {
+    // family password: 'glendon'
+    family: '053a72ef1de5683823471853afab9983ff19d2cfa803553ffd62b439d1831148',
+    // admin password:  'glendon25'
+    admin:  'a72578e98fc385c6cd8a96d0d86ec0ecf470201ce7c49d172e060767ef95fc9a',
+  },
+  // Session durations in days
+  familySessionDays: 30,
+  adminSessionDays:  1,   // admin re-authenticates daily
   scriptUrl: 'https://script.google.com/macros/s/AKfycbxGTwShAozisIqyKnNSCb8LQM0Evx7ylO9kU2nbdFFycxJV4uC-LD5ogLMT377_ki3h/exec'
 };
-// ══════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════
 
 let bookings=[],subscribers=[],calOffset=0;
 let adminLoggedIn=false,adminTab='requests',adminFilter='all';
 let reqSuccess=false,currentView='calendar',isLoading=false;
+
+// ── Password hashing & session storage ────────────────────────
+async function sha256(str){
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str.toLowerCase()));
+  return[...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+function saveSession(role){
+  const days=role==='admin'?CONFIG.adminSessionDays:CONFIG.familySessionDays;
+  localStorage.setItem('ld_'+role,JSON.stringify({expires:Date.now()+days*864e5}));
+}
+
+function sessionValid(role){
+  try{
+    const s=JSON.parse(localStorage.getItem('ld_'+role)||'{}');
+    return s.expires&&s.expires>Date.now();
+  }catch(e){return false;}
+}
+
+function clearSession(role){ localStorage.removeItem('ld_'+role); }
 const today=new Date();
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
@@ -273,12 +306,12 @@ function makeEmailData(b){
   return{name:b.name,email:b.email,checkIn:fmtDate(b.checkIn),checkOut:fmtDate(b.checkOut),nights:nightCount(b.checkIn,b.checkOut),guests:b.guests};
 }
 
-function tryGate(){
+async function tryGate(){
   const pw=document.getElementById('gate-input').value;
-  if(pw.toLowerCase()===CONFIG.passwords.family.toLowerCase()){
-    document.getElementById('screen-gate').style.display='none';
-    document.getElementById('screen-app').style.display='';
-    loadData().then(()=>showView('calendar'));
+  const h=await sha256(pw);
+  if(h===CONFIG.hashes.family){
+    saveSession('family');
+    enterApp();
   }else{
     document.getElementById('gate-err').style.display='block';
     const inp=document.getElementById('gate-input');
@@ -286,6 +319,17 @@ function tryGate(){
     inp.value='';inp.focus();
   }
 }
+
+function enterApp(){
+  document.getElementById('screen-gate').style.display='none';
+  document.getElementById('screen-app').style.display='';
+  loadData().then(()=>showView('calendar'));
+}
+
+// Check on page load if session is still valid
+(function checkExistingSession(){
+  if(sessionValid('family')) enterApp();
+})();
 
 function showView(v){
   currentView=v;
@@ -404,8 +448,17 @@ function renderRequest(){
 }
 
 function updateNights(){
-  const ci=document.getElementById('f-in').value,co=document.getElementById('f-out').value,el=document.getElementById('nights-note');
-  if(ci&&co&&co>ci){const n=nightCount(ci,co);el.innerHTML=`<div class="nights-note">✓ ${n} night${n!==1?'s':''}</div>`;}
+  const ciInput=document.getElementById('f-in');
+  const coInput=document.getElementById('f-out');
+  const el=document.getElementById('nights-note');
+  const ci=ciInput.value, co=coInput.value;
+  // When check-in is chosen, jump checkout to the same date if it's earlier
+  if(ci){
+    coInput.min=ci;
+    if(!co||co<ci) coInput.value=ci;
+  }
+  const coCur=coInput.value;
+  if(ci&&coCur&&coCur>ci){const n=nightCount(ci,coCur);el.innerHTML=`<div class="nights-note">✓ ${n} night${n!==1?'s':''}</div>`;}
   else el.innerHTML='';
 }
 
@@ -437,6 +490,8 @@ function showReqErr(msg){
 }
 
 function renderAdmin(){
+  // Restore admin session if still valid within the day
+  if(!adminLoggedIn && sessionValid('admin')) adminLoggedIn=true;
   const el=document.getElementById('view-admin');
   if(!adminLoggedIn){
     el.innerHTML=`<div class="card card-pad" style="max-width:360px;margin:0 auto">
@@ -452,7 +507,7 @@ function renderAdmin(){
       <div class="section-title" style="margin:0">Admin panel</div>
       <div style="display:flex;gap:8px">
         <button class="btn" id="refresh-btn" onclick="doRefresh()" style="font-size:13px">↻ Refresh</button>
-        <button class="btn" onclick="adminLoggedIn=false;renderAdmin()" style="font-size:13px">Logout</button>
+        <button class="btn" onclick="adminLoggedIn=false;clearSession('admin');renderAdmin()" style="font-size:13px">Logout</button>
       </div>
     </div>
     <div class="tabs">
@@ -614,9 +669,15 @@ async function removeSub(id){
   await api({action:'deleteSubscriber',id});
 }
 
-function tryAdminLogin(){
-  if(document.getElementById('a-pass').value===CONFIG.passwords.admin){adminLoggedIn=true;renderAdmin();}
-  else document.getElementById('a-err').style.display='block';
+async function tryAdminLogin(){
+  const h=await sha256(document.getElementById('a-pass').value);
+  if(h===CONFIG.hashes.admin){
+    adminLoggedIn=true;
+    saveSession('admin');
+    renderAdmin();
+  }else{
+    document.getElementById('a-err').style.display='block';
+  }
 }
 </script>
 </body>
