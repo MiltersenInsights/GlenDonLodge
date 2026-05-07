@@ -60,6 +60,8 @@
   -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;1,400&family=DM+Sans:opsz,wght@9..40,400;9..40,500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
   <style>
     :root{--forest:#2D5016;--forest-dk:#1e3a0f;--card-bg:rgba(255,255,255,0.92);--border:#ddd8ce;--text:#1a1612;--muted:#6b6358;--faint:#9e9488;--pending-bg:#faecc8;--pending-tx:#7a4f00;--pending-bd:#e8c570;--booked-bg:#f0c4c4;--booked-tx:#8b1a1a;--booked-bd:#e09090;--ok-bg:#d4edda;--ok-tx:#1a5c2e;--radius:12px;--shadow:0 2px 10px rgba(0,0,0,0.09),0 1px 2px rgba(0,0,0,0.05)}
     *{box-sizing:border-box;margin:0;padding:0}
@@ -159,13 +161,42 @@
     .banner.ok{background:var(--ok-bg);color:var(--ok-tx);border:1px solid #a8d5b5}
     .banner.er{background:var(--booked-bg);color:var(--booked-tx);border:1px solid var(--booked-bd)}
     .banner.in{background:var(--pending-bg);color:var(--pending-tx);border:1px solid var(--pending-bd)}
-    .avail-box{margin:.25rem 0 1.25rem;background:rgba(255,255,255,0.75);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1rem;backdrop-filter:blur(4px)}
-    .avail-box-title{font-size:12px;font-weight:500;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.625rem}
-    .avail-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,0.04)}
-    .avail-row:last-child{border-bottom:none}
-    .avail-lbl{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;flex-shrink:0;margin-left:8px}
-    .avail-lbl.approved{background:var(--booked-bg);color:var(--booked-tx)}
-    .avail-lbl.pending{background:var(--pending-bg);color:var(--pending-tx)}
+
+    /* ── Flatpickr theme ─────────────────────────────────────────── */
+    .flatpickr-calendar{font-family:'DM Sans',sans-serif;border-radius:var(--radius);border:1px solid var(--border);box-shadow:0 8px 32px rgba(0,0,0,0.12);background:rgba(255,255,255,0.98)}
+    .flatpickr-months{background:var(--forest);border-radius:var(--radius) var(--radius) 0 0;padding:4px 0}
+    .flatpickr-month{color:#fff}
+    .flatpickr-current-month{color:#fff;font-family:'Lora',serif;font-size:15px}
+    .flatpickr-current-month select,.flatpickr-current-month input.cur-year{color:#fff}
+    .flatpickr-months .flatpickr-prev-month,.flatpickr-months .flatpickr-next-month{color:#fff;fill:#fff;padding:8px 10px}
+    .flatpickr-months .flatpickr-prev-month:hover svg,.flatpickr-months .flatpickr-next-month:hover svg{fill:rgba(255,255,255,0.7)}
+    .flatpickr-weekdays{background:rgba(45,80,22,0.08)}
+    span.flatpickr-weekday{color:var(--forest);font-weight:500;font-size:11px}
+    .flatpickr-day{border-radius:8px;font-size:13px;color:var(--text)}
+    .flatpickr-day:hover{background:rgba(45,80,22,0.08);border-color:transparent}
+    .flatpickr-day.selected,.flatpickr-day.selected:hover{background:var(--forest);border-color:var(--forest);color:#fff}
+    .flatpickr-day.startRange,.flatpickr-day.endRange{background:var(--forest);border-color:var(--forest);color:#fff}
+    .flatpickr-day.today{border-color:var(--forest);color:var(--forest);font-weight:700}
+    .flatpickr-day.today:hover{background:rgba(45,80,22,0.08)}
+    .flatpickr-day.flatpickr-disabled,.flatpickr-day.flatpickr-disabled:hover{color:#ccc;background:none;cursor:not-allowed}
+
+    /* Booked days (confirmed) — red */
+    .flatpickr-day.day-booked,.flatpickr-day.day-booked.flatpickr-disabled,.flatpickr-day.day-booked.flatpickr-disabled:hover{
+      background:var(--booked-bg)!important;color:var(--booked-tx)!important;
+      border-color:var(--booked-bd)!important;cursor:not-allowed;text-decoration:line-through}
+
+    /* Pending days — amber, still selectable with visual cue */
+    .flatpickr-day.day-pending,.flatpickr-day.day-pending:hover{
+      background:var(--pending-bg)!important;color:var(--pending-tx)!important;
+      border-color:var(--pending-bd)!important}
+
+    /* Date picker legend */
+    .date-legend{display:flex;gap:1rem;margin:.5rem 0 1rem;flex-wrap:wrap}
+    .date-legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
+    .date-legend-dot{width:12px;height:12px;border-radius:4px;border:1px solid;flex-shrink:0}
+
+    /* Make text inputs look same as date inputs */
+    input.inp[readonly]{cursor:pointer}
   </style>
 </head>
 <body>
@@ -258,6 +289,7 @@ function sessionValid(role){
 function clearSession(role){ localStorage.removeItem('ld_'+role); }
 const today=new Date();
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+let fpIn=null,fpOut=null;
 
 async function api(params){
   if(CONFIG.scriptUrl.startsWith('YOUR_')){console.warn('Script URL not set');return{error:'not_configured'};}
@@ -442,6 +474,54 @@ async function handleSubscribe(){
   btn.disabled=false;btn.textContent='Subscribe';
 }
 
+function localDateKey(d){
+  return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+}
+
+function initDatePickers(){
+  // Destroy any existing instances first
+  if(fpIn){fpIn.destroy();fpIn=null;}
+  if(fpOut){fpOut.destroy();fpOut=null;}
+
+  const{approved,pending}=getBlockedDates();
+  const approvedSet=new Set(Object.keys(approved));
+  const pendingSet=new Set(Object.keys(pending));
+  const approvedList=Array.from(approvedSet); // Flatpickr disable list
+
+  function onDayCreate(dObj,dStr,fp,dayElem){
+    const k=localDateKey(dObj);
+    if(approvedSet.has(k)) dayElem.classList.add('day-booked');
+    else if(pendingSet.has(k)) dayElem.classList.add('day-pending');
+  }
+
+  fpIn=flatpickr('#f-in',{
+    minDate:'today',
+    dateFormat:'Y-m-d',
+    disableMobile:true,
+    disable:approvedList,
+    onDayCreate:onDayCreate,
+    onChange:function(dates,dateStr){
+      if(dateStr&&fpOut){
+        fpOut.set('minDate',dateStr);
+        // Jump checkout to same day if it's before check-in
+        if(!fpOut.selectedDates[0]||fpOut.selectedDates[0]<=dates[0]){
+          fpOut.setDate(dateStr,false);
+        }
+      }
+      updateNights();
+    }
+  });
+
+  fpOut=flatpickr('#f-out',{
+    minDate:'today',
+    dateFormat:'Y-m-d',
+    disableMobile:true,
+    disable:approvedList,
+    onDayCreate:onDayCreate,
+    onChange:function(){updateNights();}
+  });
+}
+
 function renderRequest(){
   const el=document.getElementById('view-request');
   if(reqSuccess){
@@ -461,52 +541,31 @@ function renderRequest(){
     </div>
     <div class="form-group"><label class="lbl">Phone <span style="font-weight:400;color:var(--faint)">(optional)</span></label><input class="inp" type="tel" id="f-phone" placeholder="In case we need to reach you" autocomplete="tel"></div>
     <div class="two-col">
-      <div class="form-group"><label class="lbl">Check-in date</label><input class="inp" type="date" id="f-in" min="${ts}" onchange="updateNights()"></div>
-      <div class="form-group"><label class="lbl">Check-out date</label><input class="inp" type="date" id="f-out" min="${ts}" onchange="updateNights()"></div>
+      <div class="form-group"><label class="lbl">Check-in date</label><input class="inp" type="text" id="f-in" placeholder="Pick a date" readonly></div>
+      <div class="form-group"><label class="lbl">Check-out date</label><input class="inp" type="text" id="f-out" placeholder="Pick a date" readonly></div>
+    </div>
+    <div class="date-legend">
+      <div class="date-legend-item"><div class="date-legend-dot" style="background:var(--booked-bg);border-color:var(--booked-bd)"></div>Confirmed booking</div>
+      <div class="date-legend-item"><div class="date-legend-dot" style="background:var(--pending-bg);border-color:var(--pending-bd)"></div>Pending approval</div>
     </div>
     <div id="nights-note"></div>
-    <div id="avail-hint"></div>
     <div class="form-group" style="margin-top:.25rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
     <div class="form-group"><label class="lbl">Notes <span style="font-weight:400;color:var(--faint)">(optional)</span></label><textarea class="inp" id="f-note" rows="3" placeholder="e.g. celebrating a birthday, bringing a dog…"></textarea></div>
     <div id="req-err" class="err" style="display:none"></div>
     <button class="btn btn-primary btn-full" id="req-submit" onclick="submitRequest()">Send Booking Request</button>
     <p class="hint" style="text-align:center;margin-top:.75rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
   </div>`;
-  renderAvailabilityHint();
-}
-
-function renderAvailabilityHint(){
-  const el=document.getElementById('avail-hint');
-  if(!el) return;
-  const ts=todayStr();
-  const upcoming=bookings
-    .filter(b=>b.status!=='rejected'&&(b.checkOut||'')>=ts)
-    .map(b=>({checkIn:(b.checkIn||'').trim().slice(0,10),checkOut:(b.checkOut||'').trim().slice(0,10),status:(b.status||'').trim()}))
-    .filter(b=>b.checkIn&&b.checkOut)
-    .sort((a,b)=>a.checkIn.localeCompare(b.checkIn));
-  if(upcoming.length===0){
-    el.innerHTML=`<div class="avail-box"><div class="avail-box-title">Availability</div><div style="font-size:13px;color:var(--ok-tx)">✓ No upcoming bookings — all dates are open!</div></div>`;
-    return;
-  }
-  const rows=upcoming.map(u=>{
-    const cls=u.status==='approved'?'approved':'pending';
-    const lbl=u.status==='approved'?'Confirmed':'Pending';
-    return`<div class="avail-row"><span>${fmtDate(u.checkIn)} → ${fmtDate(u.checkOut)}</span><span class="avail-lbl ${cls}">${lbl}</span></div>`;
-  }).join('');
-  el.innerHTML=`<div class="avail-box"><div class="avail-box-title">Dates already taken</div>${rows}</div>`;
+  // Initialise Flatpickr after the form HTML is in the DOM
+  setTimeout(initDatePickers, 0);
 }
 
 function updateNights(){
-  const ciInput=document.getElementById('f-in');
-  const coInput=document.getElementById('f-out');
   const el=document.getElementById('nights-note');
-  const ci=ciInput.value;
-  // Jump checkout to check-in date if it's earlier or empty
-  if(ci){
-    coInput.min=ci;
-    if(!coInput.value||coInput.value<ci) coInput.value=ci;
-  }
-  const co=coInput.value;
+  // Flatpickr keeps input .value in sync; just read from it
+  const ci=(document.getElementById('f-in')||{}).value||'';
+  const co=(document.getElementById('f-out')||{}).value||'';
+  if(!ci){el.innerHTML='';return;}
+  // (Flatpickr handles min-date clamping via fpOut.set in onChange)
   if(ci&&co&&co>ci){
     const n=nightCount(ci,co);
     const{approved,pending}=getBlockedDates();
@@ -522,7 +581,7 @@ function updateNights(){
     if(hasApproved){
       el.innerHTML=`<div class="nights-note" style="color:var(--booked-tx)">⚠ These dates overlap with a confirmed booking — please choose different dates.</div>`;
     }else if(hasPending){
-      el.innerHTML=`<div class="nights-note" style="color:var(--pending-tx)">⚠ ${n} night${n!==1?'s':''} — part of this period already has a pending request. You can still submit.</div>`;
+      el.innerHTML=`<div class="nights-note" style="color:var(--pending-tx)">⚠ ${n} night${n!==1?'s':''} — note: part of this range has a pending request. You can still submit.</div>`;
     }else{
       el.innerHTML=`<div class="nights-note">✓ ${n} night${n!==1?'s':''} — these dates look available!</div>`;
     }
