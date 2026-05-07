@@ -159,6 +159,13 @@
     .banner.ok{background:var(--ok-bg);color:var(--ok-tx);border:1px solid #a8d5b5}
     .banner.er{background:var(--booked-bg);color:var(--booked-tx);border:1px solid var(--booked-bd)}
     .banner.in{background:var(--pending-bg);color:var(--pending-tx);border:1px solid var(--pending-bd)}
+    .avail-box{margin:.25rem 0 1.25rem;background:rgba(255,255,255,0.75);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem 1rem;backdrop-filter:blur(4px)}
+    .avail-box-title{font-size:12px;font-weight:500;color:var(--faint);text-transform:uppercase;letter-spacing:.5px;margin-bottom:.625rem}
+    .avail-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:4px 0;border-bottom:1px solid rgba(0,0,0,0.04)}
+    .avail-row:last-child{border-bottom:none}
+    .avail-lbl{font-size:11px;padding:2px 8px;border-radius:10px;font-weight:500;flex-shrink:0;margin-left:8px}
+    .avail-lbl.approved{background:var(--booked-bg);color:var(--booked-tx)}
+    .avail-lbl.pending{background:var(--pending-bg);color:var(--pending-tx)}
   </style>
 </head>
 <body>
@@ -262,10 +269,29 @@ async function api(params){
 }
 
 async function loadData(){
-  isLoading=true;
+  // Show cached data immediately so the calendar appears without waiting
+  try{
+    const raw=localStorage.getItem('ld_data_cache');
+    if(raw){
+      const{b,s}=JSON.parse(raw);
+      bookings=b||[];subscribers=s||[];
+      isLoading=false;
+      if(currentView==='calendar')renderCalendar();
+      if(currentView==='admin'&&adminLoggedIn)renderAdminContent();
+    }
+  }catch(e){}
+
+  // Fetch fresh data in the background
+  isLoading=!bookings.length; // only show spinner if nothing cached yet
   const d=await api({action:'getAll'});
-  if(!d.error){bookings=d.bookings||[];subscribers=d.subscribers||[];}
+  if(!d.error){
+    bookings=d.bookings||[];
+    subscribers=d.subscribers||[];
+    try{localStorage.setItem('ld_data_cache',JSON.stringify({b:bookings,s:subscribers}));}catch(e){}
+  }
   isLoading=false;
+  if(currentView==='calendar')renderCalendar();
+  if(currentView==='admin'&&adminLoggedIn)renderAdminContent();
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
@@ -439,27 +465,70 @@ function renderRequest(){
       <div class="form-group"><label class="lbl">Check-out date</label><input class="inp" type="date" id="f-out" min="${ts}" onchange="updateNights()"></div>
     </div>
     <div id="nights-note"></div>
+    <div id="avail-hint"></div>
     <div class="form-group" style="margin-top:.25rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
     <div class="form-group"><label class="lbl">Notes <span style="font-weight:400;color:var(--faint)">(optional)</span></label><textarea class="inp" id="f-note" rows="3" placeholder="e.g. celebrating a birthday, bringing a dog…"></textarea></div>
     <div id="req-err" class="err" style="display:none"></div>
     <button class="btn btn-primary btn-full" id="req-submit" onclick="submitRequest()">Send Booking Request</button>
     <p class="hint" style="text-align:center;margin-top:.75rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
   </div>`;
+  renderAvailabilityHint();
+}
+
+function renderAvailabilityHint(){
+  const el=document.getElementById('avail-hint');
+  if(!el) return;
+  const ts=todayStr();
+  const upcoming=bookings
+    .filter(b=>b.status!=='rejected'&&(b.checkOut||'')>=ts)
+    .map(b=>({checkIn:(b.checkIn||'').trim().slice(0,10),checkOut:(b.checkOut||'').trim().slice(0,10),status:(b.status||'').trim()}))
+    .filter(b=>b.checkIn&&b.checkOut)
+    .sort((a,b)=>a.checkIn.localeCompare(b.checkIn));
+  if(upcoming.length===0){
+    el.innerHTML=`<div class="avail-box"><div class="avail-box-title">Availability</div><div style="font-size:13px;color:var(--ok-tx)">✓ No upcoming bookings — all dates are open!</div></div>`;
+    return;
+  }
+  const rows=upcoming.map(u=>{
+    const cls=u.status==='approved'?'approved':'pending';
+    const lbl=u.status==='approved'?'Confirmed':'Pending';
+    return`<div class="avail-row"><span>${fmtDate(u.checkIn)} → ${fmtDate(u.checkOut)}</span><span class="avail-lbl ${cls}">${lbl}</span></div>`;
+  }).join('');
+  el.innerHTML=`<div class="avail-box"><div class="avail-box-title">Dates already taken</div>${rows}</div>`;
 }
 
 function updateNights(){
   const ciInput=document.getElementById('f-in');
   const coInput=document.getElementById('f-out');
   const el=document.getElementById('nights-note');
-  const ci=ciInput.value, co=coInput.value;
-  // When check-in is chosen, jump checkout to the same date if it's earlier
+  const ci=ciInput.value;
+  // Jump checkout to check-in date if it's earlier or empty
   if(ci){
     coInput.min=ci;
-    if(!co||co<ci) coInput.value=ci;
+    if(!coInput.value||coInput.value<ci) coInput.value=ci;
   }
-  const coCur=coInput.value;
-  if(ci&&coCur&&coCur>ci){const n=nightCount(ci,coCur);el.innerHTML=`<div class="nights-note">✓ ${n} night${n!==1?'s':''}</div>`;}
-  else el.innerHTML='';
+  const co=coInput.value;
+  if(ci&&co&&co>ci){
+    const n=nightCount(ci,co);
+    const{approved,pending}=getBlockedDates();
+    let hasApproved=false,hasPending=false;
+    const d=new Date(ci+'T12:00:00'),end=new Date(co+'T12:00:00');
+    const td=new Date(d.getTime());
+    while(td<end){
+      const k=td.toISOString().slice(0,10);
+      if(approved[k])hasApproved=true;
+      if(pending[k])hasPending=true;
+      td.setDate(td.getDate()+1);
+    }
+    if(hasApproved){
+      el.innerHTML=`<div class="nights-note" style="color:var(--booked-tx)">⚠ These dates overlap with a confirmed booking — please choose different dates.</div>`;
+    }else if(hasPending){
+      el.innerHTML=`<div class="nights-note" style="color:var(--pending-tx)">⚠ ${n} night${n!==1?'s':''} — part of this period already has a pending request. You can still submit.</div>`;
+    }else{
+      el.innerHTML=`<div class="nights-note">✓ ${n} night${n!==1?'s':''} — these dates look available!</div>`;
+    }
+  }else{
+    el.innerHTML='';
+  }
 }
 
 async function submitRequest(){
@@ -541,7 +610,15 @@ function setAdminTab(t){adminTab=t;renderAdmin();}
 function renderAdminRequests(el){
   const c={pending:0,approved:0,rejected:0};bookings.forEach(b=>c[b.status]++);
   const filtered=(adminFilter==='all'?[...bookings]:bookings.filter(b=>b.status===adminFilter))
-    .sort((a,b)=>new Date(a.checkIn)-new Date(b.checkIn));
+    .sort((a,b)=>{
+      // Pending always floats to top when viewing all
+      if(adminFilter==='all'){
+        if(a.status==='pending'&&b.status!=='pending') return -1;
+        if(a.status!=='pending'&&b.status==='pending') return 1;
+      }
+      // Within same status: oldest request first
+      return new Date(a.requestedAt||0)-new Date(b.requestedAt||0);
+    });
   const cards=filtered.length===0
     ?`<div class="empty">No ${adminFilter==='all'?'':adminFilter+' '}bookings yet.</div>`
     :filtered.map(b=>{
