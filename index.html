@@ -281,29 +281,36 @@ async function api(params){
 }
 
 async function loadData(){
-  // Show cached data immediately so the calendar appears without waiting
+  // ── Step 1: show localStorage cache instantly (zero wait) ──────────────
+  let hadCache = false;
   try{
-    const raw=localStorage.getItem('ld_data_cache');
+    const raw = localStorage.getItem('ld_data_cache');
     if(raw){
-      const{b,s}=JSON.parse(raw);
-      bookings=b||[];subscribers=s||[];
-      isLoading=false;
-      if(currentView==='calendar')renderCalendar();
-      if(currentView==='admin'&&adminLoggedIn)renderAdminContent();
+      const{b,s,ts} = JSON.parse(raw);
+      bookings = b||[]; subscribers = s||[];
+      hadCache = true;
+      isLoading = false;
+      // Render immediately from cache — no spinner, no delay
+      if(currentView==='calendar') renderCalendar();
+      if(currentView==='admin'&&adminLoggedIn) renderAdminContent();
+      if(currentView==='manage') renderManage();
     }
   }catch(e){}
 
-  // Fetch fresh data in the background
-  isLoading=!bookings.length; // only show spinner if nothing cached yet
-  const d=await api({action:'getAll'});
+  // ── Step 2: fetch fresh data from Apps Script (cached there too) ────────
+  isLoading = !hadCache;
+  if(!hadCache && currentView==='calendar') renderCalendar(); // show spinner only if no cache
+
+  const d = await api({action:'getAll'});
   if(!d.error){
-    bookings=d.bookings||[];
-    subscribers=d.subscribers||[];
-    try{localStorage.setItem('ld_data_cache',JSON.stringify({b:bookings,s:subscribers}));}catch(e){}
+    bookings = d.bookings||[]; subscribers = d.subscribers||[];
+    try{ localStorage.setItem('ld_data_cache', JSON.stringify({b:bookings,s:subscribers,ts:Date.now()})); }catch(e){}
   }
-  isLoading=false;
-  if(currentView==='calendar')renderCalendar();
-  if(currentView==='admin'&&adminLoggedIn)renderAdminContent();
+  isLoading = false;
+
+  // ── Step 3: silently re-render with fresh data ──────────────────────────
+  if(currentView==='calendar') renderCalendar();
+  if(currentView==='admin'&&adminLoggedIn) renderAdminContent();
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
@@ -414,7 +421,7 @@ function buildMonthHTML(year,month,approved,pending){
 
 function renderCalendar(){
   const el=document.getElementById('view-calendar');
-  if(isLoading){el.innerHTML='<div class="loading-state"><span class="spinner"></span>Loading calendar…</div>';return;}
+  if(isLoading&&!bookings.length){el.innerHTML='<div class="loading-state"><span class="spinner"></span>Loading…</div>';return;}
   const{approved,pending}=getBlockedDates();
   let months='';
   for(let i=0;i<3;i++){
@@ -699,7 +706,11 @@ function renderAdmin(){
 async function doRefresh(){
   const btn=document.getElementById('refresh-btn');if(!btn)return;
   btn.textContent='↻ Loading…';btn.disabled=true;
-  await loadData();
+  const d=await api({action:'getAll'});
+  if(!d.error){
+    bookings=d.bookings||[];subscribers=d.subscribers||[];
+    try{localStorage.setItem('ld_data_cache',JSON.stringify({b:bookings,s:subscribers,ts:Date.now()}));}catch(e){}
+  }
   btn.textContent='↻ Refresh';btn.disabled=false;
   renderAdminContent();
 }
