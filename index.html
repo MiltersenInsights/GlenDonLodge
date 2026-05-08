@@ -4,6 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Glen Don Lodge</title>
+
+  <!-- Favicon (browser tab icon) -->
+  <link rel="icon" type="image/png" href="favicon.png">
+  <link rel="apple-touch-icon" href="favicon.png">
+
+  <!-- Open Graph — controls WhatsApp / iMessage / social preview -->
+  <meta property="og:title"       content="Glen Don Lodge">
+  <meta property="og:description" content="The family cabin — check availability and request a stay.">
+  <meta property="og:image"       content="og-image.jpg">
+  <meta property="og:type"        content="website">
+  <meta name="twitter:card"       content="summary_large_image">
+  <meta name="twitter:image"      content="og-image.jpg">
   <!--
   ╔══════════════════════════════════════════════════════════════════════╗
   ║                  GLEN DON LODGE — SETUP GUIDE                        ║
@@ -221,22 +233,23 @@
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONFIG
-//  Passwords are stored as SHA-256 hashes — the real words are
-//  never visible in source. To change a password, run this in
-//  your browser console and paste the result here:
-//    crypto.subtle.digest('SHA-256', new TextEncoder().encode('yourword'))
-//      .then(b => console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+//  Passwords are stored as hashes — never visible in plain text.
+//  To change a password, open your browser console on the LIVE site
+//  (must be HTTPS) and run:
+//    crypto.subtle.digest('SHA-256',new TextEncoder().encode('newpassword'))
+//      .then(b=>console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
+//  Then update the sha256 value below. The djb2 value is for local
+//  testing only — run djb2('newpassword') in the console to get it.
 // ══════════════════════════════════════════════════════════════
 const CONFIG = {
   hashes: {
     // family password: 'glendon'
-    family: '053a72ef1de5683823471853afab9983ff19d2cfa803553ffd62b439d1831148',
+    family: { sha256:'053a72ef1de5683823471853afab9983ff19d2cfa803553ffd62b439d1831148', djb2:'ba1f0860' },
     // admin password:  'glendon25'
-    admin:  'a72578e98fc385c6cd8a96d0d86ec0ecf470201ce7c49d172e060767ef95fc9a',
+    admin:  { sha256:'a72578e98fc385c6cd8a96d0d86ec0ecf470201ce7c49d172e060767ef95fc9a', djb2:'be029ea7' },
   },
-  // Session durations in days
   familySessionDays: 30,
-  adminSessionDays:  1,   // admin re-authenticates daily
+  adminSessionDays:  1,
   scriptUrl: 'https://script.google.com/macros/s/AKfycbxGTwShAozisIqyKnNSCb8LQM0Evx7ylO9kU2nbdFFycxJV4uC-LD5ogLMT377_ki3h/exec'
 };
 // ══════════════════════════════════════════════════════════════
@@ -246,9 +259,31 @@ let adminLoggedIn=false,adminTab='requests',adminFilter='all';
 let reqSuccess=false,currentView='calendar',isLoading=false;
 
 // ── Password hashing & session storage ────────────────────────
+
+// djb2 — synchronous, works on file:// and HTTP (local testing)
+function djb2(str){
+  let h=5381;
+  for(let i=0;i<str.length;i++) h=((h<<5)+h)^str.charCodeAt(i);
+  return(h>>>0).toString(16).padStart(8,'0');
+}
+
+// SHA-256 via Web Crypto — requires HTTPS (GitHub Pages, live site)
 async function sha256(str){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str.toLowerCase()));
+  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
   return[...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
+}
+
+// checkPw: tries SHA-256 first, falls back to djb2 if not on HTTPS
+async function checkPw(pw,role){
+  const lower=pw.toLowerCase();
+  const stored=CONFIG.hashes[role];
+  try{
+    const h=await sha256(lower);
+    return h===stored.sha256;
+  }catch(e){
+    // crypto.subtle not available (file:// or HTTP) — use djb2 fallback
+    return djb2(lower)===stored.djb2;
+  }
 }
 
 function saveSession(role){
@@ -350,8 +385,7 @@ function makeEmailData(b){
 
 async function tryGate(){
   const pw=document.getElementById('gate-input').value;
-  const h=await sha256(pw);
-  if(h===CONFIG.hashes.family){
+  if(await checkPw(pw,'family')){
     saveSession('family');
     enterApp();
   }else{
@@ -889,9 +923,9 @@ Are you sure you want to cancel?'
   await api({action:'deleteBooking',id});
 }
 
-function tryAdminLogin(){
-  const h=await sha256(document.getElementById('a-pass').value);
-  if(h===CONFIG.hashes.admin){
+async async function tryAdminLogin(){
+  const pw=document.getElementById('a-pass').value;
+  if(await checkPw(pw,'admin')){
     adminLoggedIn=true;
     saveSession('admin');
     renderAdmin();
