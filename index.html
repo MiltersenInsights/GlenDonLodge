@@ -66,25 +66,25 @@
     html,body{font-family:'DM Sans',sans-serif;color:var(--text);min-height:100vh}
     body::before{content:'';position:fixed;inset:0;background:linear-gradient(to bottom,rgba(255,255,255,0.60) 0%,rgba(255,255,255,0.50) 50%,rgba(255,255,255,0.58) 100%),url('cabin-bg.jpg') center center/cover no-repeat;z-index:0}
     #app{position:relative;z-index:1;min-height:100vh}
-    .wrap{max-width:1000px;margin:0 auto;padding:0 1rem 3rem}
-    .site-header{text-align:center;padding:2rem 1rem 1.5rem;margin-bottom:1.5rem}
-    .site-logo{font-family:'Lora',serif;font-size:clamp(26px,5vw,36px);font-weight:600;letter-spacing:-0.3px;text-shadow:0 1px 6px rgba(255,255,255,0.9)}
-    .site-sub{font-family:'Lora',serif;font-style:italic;font-size:14px;color:var(--muted);margin-top:4px}
-    .site-nav{display:flex;gap:8px;justify-content:center;margin-top:1.25rem;flex-wrap:wrap}
-    .site-nav button{font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 20px;border-radius:30px;border:1px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.72);color:var(--muted);cursor:pointer;transition:all .18s;backdrop-filter:blur(6px)}
+    .wrap{max-width:1000px;margin:0 auto;padding:0 .875rem 2rem}
+    .site-header{text-align:center;padding:1rem 1rem 0.875rem;margin-bottom:1rem}
+    .site-logo{font-family:'Lora',serif;font-size:clamp(22px,4vw,28px);font-weight:600;letter-spacing:-0.3px;text-shadow:0 1px 6px rgba(255,255,255,0.9)}
+    .site-sub{font-family:'Lora',serif;font-style:italic;font-size:13px;color:var(--muted);margin-top:2px}
+    .site-nav{display:flex;gap:6px;justify-content:center;margin-top:0.75rem;flex-wrap:wrap}
+    .site-nav button{font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 15px;border-radius:30px;border:1px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.72);color:var(--muted);cursor:pointer;transition:all .18s;backdrop-filter:blur(6px)}
     .site-nav button:hover{background:rgba(255,255,255,0.95);color:var(--text)}
     .site-nav button.active{background:var(--forest);color:#fff;border-color:var(--forest)}
     .card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.72);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px)}
-    .card-pad{padding:1.25rem 1.5rem}
-    .three-months{display:grid;grid-template-columns:repeat(3,1fr);gap:.875rem;margin-bottom:.875rem}
+    .card-pad{padding:0.875rem 1.125rem}
+    .three-months{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:.5rem}
     @media(max-width:680px){.three-months{grid-template-columns:1fr}}
     @media(min-width:681px) and (max-width:860px){.three-months{grid-template-columns:1fr 1fr}}
-    .month-card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.72);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px);padding:1rem}
-    .cal-month-title{font-family:'Lora',serif;font-size:15px;font-weight:600;text-align:center;margin-bottom:.75rem}
+    .month-card{background:var(--card-bg);border:1px solid rgba(255,255,255,0.72);border-radius:var(--radius);box-shadow:var(--shadow);backdrop-filter:blur(8px);padding:.625rem}
+    .cal-month-title{font-family:'Lora',serif;font-size:13px;font-weight:600;text-align:center;margin-bottom:.4rem}
     table.cal{width:100%;border-collapse:collapse}
     table.cal th{text-align:center;font-size:10px;font-weight:500;color:var(--faint);padding:4px 0;text-transform:uppercase;letter-spacing:.5px}
     table.cal td{text-align:center;padding:1px}
-    .day{width:100%;aspect-ratio:1;max-width:34px;display:inline-flex;align-items:center;justify-content:center;border-radius:7px;font-size:12px;border:1px solid transparent}
+    .day{width:100%;aspect-ratio:1;max-width:30px;display:inline-flex;align-items:center;justify-content:center;border-radius:6px;font-size:11px;border:1px solid transparent}
     .day.available{color:var(--text)}.day.past{color:#ccc}.day.today{border-color:var(--forest);color:var(--forest);font-weight:700}
     .day.booked{background:var(--booked-bg);color:var(--booked-tx);border-color:var(--booked-bd);font-weight:500}
     .day.pending{background:var(--pending-bg);color:var(--pending-tx);border-color:var(--pending-bd);font-weight:500}
@@ -92,58 +92,58 @@
     .cal-nav-row button{background:rgba(255,255,255,0.72);border:1px solid var(--border);border-radius:8px;width:36px;height:36px;cursor:pointer;font-size:20px;color:var(--muted);display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
     .cal-nav-row button:hover{background:rgba(255,255,255,0.98)}
     .cal-nav-label{font-family:'Lora',serif;font-size:14px;color:var(--muted);font-style:italic}
-    .legend{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;padding:.75rem 0 0}
+    .legend{display:flex;gap:.75rem;flex-wrap:wrap;justify-content:center;padding:.5rem 0 0}
     .legend-item{display:flex;align-items:center;gap:5px;font-size:12px;color:var(--muted)}
     .legend-dot{width:12px;height:12px;border-radius:4px;border:1px solid;flex-shrink:0}
-    .btn{font-family:'DM Sans',sans-serif;font-size:14px;padding:9px 18px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(255,255,255,0.85);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
+    .btn{font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 14px;border-radius:var(--radius);border:1px solid var(--border);background:rgba(255,255,255,0.85);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap}
     .btn:hover{background:#fff}.btn:disabled{opacity:.5;cursor:default}
     .btn-primary{background:var(--forest);color:#fff;border-color:var(--forest)}.btn-primary:hover{background:var(--forest-dk)}
     .btn-danger{background:#8b1a1a;color:#fff;border-color:#8b1a1a}.btn-danger:hover{background:#6b1212}
-    .btn-full{width:100%;font-size:16px;padding:13px 24px}
-    .form-group{margin-bottom:1.25rem}
-    label.lbl{display:block;font-size:14px;font-weight:500;margin-bottom:6px}
-    input.inp,textarea.inp{width:100%;padding:11px 14px;font-size:16px;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.88);color:var(--text);appearance:none;transition:border-color .15s,box-shadow .15s}
+    .btn-full{width:100%;font-size:15px;padding:10px 20px}
+    .form-group{margin-bottom:.875rem}
+    label.lbl{display:block;font-size:13px;font-weight:500;margin-bottom:4px}
+    input.inp,textarea.inp{width:100%;padding:8px 12px;font-size:15px;font-family:'DM Sans',sans-serif;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.88);color:var(--text);appearance:none;transition:border-color .15s,box-shadow .15s}
     input.inp:focus,textarea.inp:focus{outline:none;border-color:var(--forest);box-shadow:0 0 0 3px rgba(45,80,22,0.12);background:rgba(255,255,255,0.99)}
-    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:1rem}
+    .two-col{display:grid;grid-template-columns:1fr 1fr;gap:.625rem}
     @media(max-width:480px){.two-col{grid-template-columns:1fr}}
-    .hint{font-size:12px;color:var(--faint);margin-top:5px}.err{font-size:13px;color:var(--booked-tx);margin-top:6px}
+    .hint{font-size:11px;color:var(--faint);margin-top:3px}.err{font-size:12px;color:var(--booked-tx);margin-top:4px}
     .nights-note{font-size:13px;color:var(--forest);font-weight:500;margin-top:6px;margin-bottom:.5rem}
     .badge{font-size:11px;padding:3px 10px;border-radius:20px;font-weight:500;text-transform:capitalize;white-space:nowrap}
     .badge.pending{background:var(--pending-bg);color:var(--pending-tx)}.badge.approved{background:var(--ok-bg);color:var(--ok-tx)}.badge.rejected{background:var(--booked-bg);color:var(--booked-tx)}
-    .booking-card{border:1px solid var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:.75rem;background:rgba(255,255,255,0.92)}
+    .booking-card{border:1px solid var(--border);border-radius:var(--radius);padding:.625rem .875rem;margin-bottom:.5rem;background:rgba(255,255,255,0.92)}
     .booking-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.4rem;flex-wrap:wrap;gap:6px}
-    .booking-name{font-family:'Lora',serif;font-size:16px;font-weight:600}
-    .booking-dates{font-size:14px;color:var(--muted);margin-bottom:4px}
-    .booking-meta{font-size:13px;color:var(--faint);margin-bottom:.75rem}
-    .booking-note{font-size:13px;font-style:italic;color:var(--muted);background:rgba(250,247,242,0.95);padding:8px 12px;border-radius:8px;margin-bottom:.75rem}
+    .booking-name{font-family:'Lora',serif;font-size:14px;font-weight:600}
+    .booking-dates{font-size:13px;color:var(--muted);margin-bottom:2px}
+    .booking-meta{font-size:12px;color:var(--faint);margin-bottom:.5rem}
+    .booking-note{font-size:12px;font-style:italic;color:var(--muted);background:rgba(250,247,242,0.95);padding:5px 10px;border-radius:8px;margin-bottom:.5rem}
     .booking-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.5rem;overflow-x:auto}
-    .tab{font-family:'DM Sans',sans-serif;font-size:14px;padding:10px 16px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
+    .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:.875rem;overflow-x:auto}
+    .tab{font-family:'DM Sans',sans-serif;font-size:13px;padding:7px 13px;border:none;background:none;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;white-space:nowrap}
     .tab.active{color:var(--forest);border-bottom-color:var(--forest);font-weight:500}
-    .filters{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:1rem}
-    .filter{font-size:12px;padding:5px 14px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,0.7);color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
+    .filters{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:.625rem}
+    .filter{font-size:11px;padding:4px 11px;border-radius:20px;border:1px solid var(--border);background:rgba(255,255,255,0.7);color:var(--muted);cursor:pointer;font-family:'DM Sans',sans-serif}
     .filter.active{background:var(--forest);color:#fff;border-color:var(--forest)}
-    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:1.5rem}
-    .stat{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;text-align:center}
-    .stat-num{font-size:26px;font-weight:600}.stat-lbl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
+    .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:.875rem}
+    .stat{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem;text-align:center}
+    .stat-num{font-size:20px;font-weight:600}.stat-lbl{font-size:11px;color:var(--faint);text-transform:uppercase;letter-spacing:.5px}
     .gate{min-height:65vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:2rem 1rem}
-    .gate-box{background:rgba(255,255,255,0.90);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.85);border-radius:20px;box-shadow:var(--shadow);padding:2.5rem 2rem;max-width:360px;width:100%}
-    .gate-icon{font-size:52px;margin-bottom:1rem}
-    .gate-box h2{font-family:'Lora',serif;font-size:24px;margin-bottom:.5rem}
-    .gate-box p{font-size:14px;color:var(--muted);margin-bottom:1.75rem}
+    .gate-box{background:rgba(255,255,255,0.90);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.85);border-radius:20px;box-shadow:var(--shadow);padding:1.75rem 1.75rem;max-width:340px;width:100%}
+    .gate-icon{font-size:40px;margin-bottom:.625rem}
+    .gate-box h2{font-family:'Lora',serif;font-size:20px;margin-bottom:.375rem}
+    .gate-box p{font-size:13px;color:var(--muted);margin-bottom:1.25rem}
     @keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}60%{transform:translateX(7px)}}
     .shake{animation:shake .35s ease}
-    .success{text-align:center;padding:2.5rem 1rem}
-    .success-icon{font-size:52px;display:block;margin-bottom:1rem}
-    .success h2{font-family:'Lora',serif;font-size:22px;margin-bottom:.5rem}
-    .success p{font-size:15px;color:var(--muted);margin-bottom:1.5rem}
-    .subscribe-strip{margin-top:1.25rem;background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.75);border-radius:var(--radius);padding:1.25rem 1.5rem;backdrop-filter:blur(8px);box-shadow:var(--shadow)}
-    .subscribe-strip h3{font-family:'Lora',serif;font-size:16px;margin-bottom:4px}
-    .subscribe-strip p{font-size:13px;color:var(--muted);margin-bottom:.875rem}
+    .success{text-align:center;padding:1.5rem 1rem}
+    .success-icon{font-size:40px;display:block;margin-bottom:.625rem}
+    .success h2{font-family:'Lora',serif;font-size:18px;margin-bottom:.375rem}
+    .success p{font-size:13px;color:var(--muted);margin-bottom:1rem}
+    .subscribe-strip{margin-top:.75rem;background:rgba(255,255,255,0.90);border:1px solid rgba(255,255,255,0.75);border-radius:var(--radius);padding:.75rem 1.125rem;backdrop-filter:blur(8px);box-shadow:var(--shadow)}
+    .subscribe-strip h3{font-family:'Lora',serif;font-size:14px;margin-bottom:2px}
+    .subscribe-strip p{font-size:12px;color:var(--muted);margin-bottom:.5rem}
     .subscribe-row{display:flex;gap:8px;flex-wrap:wrap}
     .subscribe-row .inp{flex:1;min-width:120px;font-size:14px;padding:9px 12px}
-    .broadcast-box{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:1.25rem;margin-top:1rem}
-    .broadcast-box h3{font-family:'Lora',serif;font-size:16px;margin-bottom:1rem}
+    .broadcast-box{background:rgba(250,247,242,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.875rem;margin-top:.75rem}
+    .broadcast-box h3{font-family:'Lora',serif;font-size:14px;margin-bottom:.625rem}
     .sub-row{display:flex;align-items:center;justify-content:space-between;padding:.625rem 0;border-bottom:1px solid var(--border);font-size:14px;gap:8px}
     .sub-row:last-child{border-bottom:none}
     .sub-name{font-weight:500}.sub-email{color:var(--muted);font-size:13px}
@@ -153,13 +153,13 @@
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-state{text-align:center;padding:2.5rem;color:var(--muted);font-size:14px}
     .empty{text-align:center;padding:2rem;color:var(--muted);font-size:14px;border:1px dashed var(--border);border-radius:var(--radius)}
-    .section-title{font-family:'Lora',serif;font-size:20px;font-weight:600;margin-bottom:1.25rem}
-    .admin-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:8px}
+    .section-title{font-family:'Lora',serif;font-size:17px;font-weight:600;margin-bottom:.75rem}
+    .admin-topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:.875rem;flex-wrap:wrap;gap:6px}
     .banner{padding:10px 14px;border-radius:var(--radius);font-size:13px;margin-bottom:1rem}
     .banner.ok{background:var(--ok-bg);color:var(--ok-tx);border:1px solid #a8d5b5}
     .banner.er{background:var(--booked-bg);color:var(--booked-tx);border:1px solid var(--booked-bd)}
     .banner.in{background:var(--pending-bg);color:var(--pending-tx);border:1px solid var(--pending-bd)}
-    .avail-box{position:relative;z-index:0;margin:0 0 1.25rem;background:rgba(255,255,255,0.80);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;backdrop-filter:blur(4px)}
+    .avail-box{position:relative;z-index:0;margin:0 0 .75rem;background:rgba(255,255,255,0.80);border:1px solid var(--border);border-radius:var(--radius);padding:.5rem .875rem;backdrop-filter:blur(4px)}
     .avail-box-title{font-size:11px;font-weight:500;color:var(--faint);text-transform:uppercase;letter-spacing:.6px;margin-bottom:.5rem}
     .avail-row{display:flex;justify-content:space-between;align-items:center;font-size:13px;padding:3px 0;border-bottom:1px solid rgba(0,0,0,0.04)}
     .avail-row:last-child{border-bottom:none}
@@ -201,12 +201,18 @@
       <nav class="site-nav">
         <button id="nav-calendar" class="active" onclick="showView('calendar')">📅 Calendar</button>
         <button id="nav-request" onclick="showView('request')">✉️ Request a Stay</button>
-        <button id="nav-admin" onclick="showView('admin')">🔑 Admin</button>
       </nav>
     </div>
     <div id="view-calendar"></div>
     <div id="view-request" style="display:none"></div>
     <div id="view-admin" style="display:none"></div>
+    <div style="text-align:center;margin-top:1.5rem;padding-bottom:.25rem">
+      <button onclick="showView('admin')" id="nav-admin"
+        style="background:none;border:none;color:rgba(80,70,60,0.3);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;letter-spacing:.3px;transition:color .2s"
+        onmouseover="this.style.color='rgba(80,70,60,0.6)'" onmouseout="this.style.color='rgba(80,70,60,0.3)'">
+        admin
+      </button>
+    </div>
   </div>
 
 </div></div>
@@ -448,7 +454,7 @@ function renderRequest(){
     el.innerHTML=`<div class="card card-pad"><div class="success">
       <span class="success-icon">🏡</span><h2>Request sent!</h2>
       <p>The cabin admin will review it and email you once it's confirmed.</p>
-      <button class="btn" onclick="reqSuccess=false;renderRequest()" style="margin-right:8px">New request</button>
+      <button class="btn" onclick="reqSuccess=false;renderRequest()" style="margin-right:6px">New request</button>
       <button class="btn btn-primary" onclick="showView('calendar')">Back to calendar</button>
     </div></div>`;return;
   }
@@ -465,11 +471,11 @@ function renderRequest(){
       <div class="form-group"><label class="lbl">Check-out date</label><input class="inp" type="date" id="f-out" min="${ts}" onchange="updateNights()"></div>
     </div>
     <div id="nights-note"></div>
-    <div class="form-group" style="margin-top:.25rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
+    <div class="form-group" style="margin-top:.125rem"><label class="lbl">Number of guests</label><input class="inp" type="number" id="f-guests" min="1" max="30" placeholder="1" style="max-width:130px"></div>
     <div class="form-group"><label class="lbl">Notes <span style="font-weight:400;color:var(--faint)">(optional)</span></label><textarea class="inp" id="f-note" rows="3" placeholder="e.g. celebrating a birthday, bringing a dog…"></textarea></div>
     <div id="req-err" class="err" style="display:none"></div>
     <button class="btn btn-primary btn-full" id="req-submit" onclick="submitRequest()">Send Booking Request</button>
-    <p class="hint" style="text-align:center;margin-top:.75rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
+    <p class="hint" style="text-align:center;margin-top:.5rem">Your request goes to the admin for approval — you'll get an email confirmation!</p>
     <div id="avail-hint" style="margin-top:1rem"></div>
   </div>`;
   renderAvailabilityHint();
