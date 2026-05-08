@@ -876,9 +876,7 @@ function lookupBooking(){
 async function cancelMyBooking(id,status){
   const isApproved=status==='approved';
   const msg=isApproved
-    ?'This is a CONFIRMED stay. Cancelling will remove it from the calendar — please also message the cabin admin to let them know.
-
-Are you sure you want to cancel?'
+    ?'This is a CONFIRMED stay — are you sure you want to cancel? Please also let the cabin admin know.'
     :'Are you sure you want to cancel this booking request?';
   if(!confirm(msg)) return;
   bookings=bookings.filter(x=>x.id!==id);
