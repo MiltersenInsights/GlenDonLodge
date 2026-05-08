@@ -266,6 +266,11 @@ function clearSession(role){ localStorage.removeItem('ld_'+role); }
 const today=new Date();
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 
+// ── Global state ───────────────────────────────────────────────────────────
+let bookings=[], subscribers=[], calOffset=0;
+let adminLoggedIn=false, adminTab='requests', adminFilter='all';
+let reqSuccess=false, currentView='calendar', isLoading=false;
+
 async function api(params){
   if(CONFIG.scriptUrl.startsWith('YOUR_')){console.warn('Script URL not set');return{error:'not_configured'};}
   try{
@@ -848,7 +853,7 @@ async function removeSub(id){
   await api({action:'deleteSubscriber',id});
 }
 
-async // ══════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════
 //  MY BOOKING VIEW
 // ══════════════════════════════════════════════════════
 let myBookingEmail = '';
