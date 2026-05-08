@@ -149,6 +149,10 @@
     .sub-name{font-weight:500}.sub-email{color:var(--muted);font-size:13px}
     .sub-src{font-size:11px;color:var(--faint);background:rgba(250,247,242,0.95);padding:2px 8px;border-radius:10px;flex-shrink:0}
     .bcc-strip{background:rgba(255,255,255,0.92);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem 1rem;font-size:12px;color:var(--muted);word-break:break-all;margin-bottom:1rem;max-height:80px;overflow-y:auto}
+
+    .admin-footer-btn{font-family:'DM Sans',sans-serif;font-size:13px;padding:6px 15px;border-radius:30px;border:1px solid rgba(255,255,255,0.7);background:rgba(255,255,255,0.72);color:var(--muted);cursor:pointer;transition:all .25s;backdrop-filter:blur(6px);opacity:0.3;}
+    .admin-footer-btn:hover{opacity:1;}
+    .admin-footer-btn.active{background:var(--forest);color:#fff;border-color:var(--forest);opacity:1;}
     .spinner{display:inline-block;width:16px;height:16px;border:2px solid var(--border);border-top-color:var(--forest);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px}
     @keyframes spin{to{transform:rotate(360deg)}}
     .loading-state{text-align:center;padding:2.5rem;color:var(--muted);font-size:14px}
@@ -201,17 +205,15 @@
       <nav class="site-nav">
         <button id="nav-calendar" class="active" onclick="showView('calendar')">📅 Calendar</button>
         <button id="nav-request" onclick="showView('request')">✉️ Request a Stay</button>
+        <button id="nav-mybooking" onclick="showView('mybooking')">📋 My Booking</button>
       </nav>
     </div>
     <div id="view-calendar"></div>
-    <div id="view-request" style="display:none"></div>
-    <div id="view-admin" style="display:none"></div>
-    <div style="text-align:center;margin-top:1.5rem;padding-bottom:.25rem">
-      <button onclick="showView('admin')" id="nav-admin"
-        style="background:none;border:none;color:rgba(80,70,60,0.3);font-size:11px;cursor:pointer;font-family:'DM Sans',sans-serif;padding:4px 8px;letter-spacing:.3px;transition:color .2s"
-        onmouseover="this.style.color='rgba(80,70,60,0.6)'" onmouseout="this.style.color='rgba(80,70,60,0.3)'">
-        admin
-      </button>
+    <div id="view-request"   style="display:none"></div>
+    <div id="view-mybooking" style="display:none"></div>
+    <div id="view-admin"     style="display:none"></div>
+    <div style="text-align:center;margin-top:1.25rem;padding-bottom:.5rem">
+      <button class="admin-footer-btn" id="nav-admin" onclick="showView('admin')">🔑 Admin</button>
     </div>
   </div>
 
@@ -301,6 +303,14 @@ async function loadData(){
 }
 
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,6);}
+
+function generateCode(){
+  // 6-char uppercase code — avoids 0/O and 1/I to prevent confusion
+  const chars='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let code='';
+  for(let i=0;i<6;i++) code+=chars[Math.floor(Math.random()*chars.length)];
+  return code;
+}
 function fmtDate(d){return new Date(d+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});}
 function nightCount(a,b){return Math.round((new Date(b+'T12:00:00')-new Date(a+'T12:00:00'))/86400000);}
 function todayStr(){return today.toISOString().slice(0,10);}
@@ -365,12 +375,14 @@ function enterApp(){
 
 function showView(v){
   currentView=v;
-  ['calendar','request','admin'].forEach(n=>{
+  ['calendar','request','mybooking','admin'].forEach(n=>{
     document.getElementById('view-'+n).style.display=n===v?'':'none';
-    const btn=document.getElementById('nav-'+n);if(btn)btn.classList.toggle('active',n===v);
+    const btn=document.getElementById('nav-'+n);
+    if(btn) btn.classList.toggle('active',n===v);
   });
   if(v==='calendar')renderCalendar();
   else if(v==='request')renderRequest();
+  else if(v==='mybooking')renderMyBooking();
   else if(v==='admin')renderAdmin();
 }
 
@@ -487,7 +499,7 @@ function renderAvailabilityHint(){
   const ts=todayStr();
   const upcoming=bookings
     .filter(b=>{const s=(b.status||'').trim();return s!=='rejected'&&(b.checkOut||'').trim().slice(0,10)>=ts;})
-    .map(b=>({checkIn:(b.checkIn||'').trim().slice(0,10),checkOut:(b.checkOut||'').trim().slice(0,10),status:(b.status||'').trim()}))
+    .map(b=>({checkIn:(b.checkIn||'').trim().slice(0,10),checkOut:(b.checkOut||'').trim().slice(0,10),status:(b.status||'').trim(),name:(b.name||'').trim()}))
     .filter(b=>b.checkIn&&b.checkOut)
     .sort((a,b)=>a.checkIn.localeCompare(b.checkIn));
   if(upcoming.length===0){
@@ -499,7 +511,7 @@ function renderAvailabilityHint(){
     const icon=u.status==='approved'?'🔴':'🟡';
     const lbl=u.status==='approved'?'Booked':'Pending';
     const nights=nightCount(u.checkIn,u.checkOut);
-    return`<div class="avail-row"><span>${icon} ${fmtDate(u.checkIn)} → ${fmtDate(u.checkOut)} <span style="color:var(--faint)">(${nights}n)</span></span><span class="avail-lbl ${cls}">${lbl}</span></div>`;
+    return`<div class="avail-row"><span>${icon} <strong style="font-weight:500">${u.name}</strong> &nbsp;${fmtDate(u.checkIn)} → ${fmtDate(u.checkOut)} <span style="color:var(--faint)">(${nights}n)</span></span><span class="avail-lbl ${cls}">${lbl}</span></div>`;
   }).join('');
   el.innerHTML=`<div class="avail-box"><div class="avail-box-title">📅 Dates already taken</div>${rows}</div>`;
 }
@@ -555,7 +567,7 @@ async function submitRequest(){
   const{approved}=getBlockedDates(),d=new Date(checkIn+'T12:00:00'),end=new Date(checkOut+'T12:00:00');
   while(d<end){if(approved[d.toISOString().slice(0,10)]){showReqErr('Those dates overlap with an existing booking. Please check the calendar.');return;}d.setDate(d.getDate()+1);}
   btn.disabled=true;btn.textContent='Sending…';
-  const booking={id:uid(),name,email,phone,checkIn,checkOut,guests:parseInt(guests),note,status:'pending',requestedAt:new Date().toISOString()};
+  const booking={id:uid(),code:generateCode(),name,email,phone,checkIn,checkOut,guests:parseInt(guests),note,status:'pending',requestedAt:new Date().toISOString()};
   await api({action:'addBooking',data:JSON.stringify({...booking,nights:nightCount(checkIn,checkOut)})});
   bookings.push(booking);
   reqSuccess=true;renderRequest();
@@ -564,6 +576,90 @@ async function submitRequest(){
 function showReqErr(msg){
   const el=document.getElementById('req-err');el.textContent=msg;el.style.display='block';
   const btn=document.getElementById('req-submit');if(btn){btn.disabled=false;btn.textContent='Send Booking Request';}
+}
+
+function renderManage(){
+  const el=document.getElementById('view-mybooking');
+  el.innerHTML=`<div class="card card-pad">
+    <div class="section-title">My Booking</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:.875rem">Enter the email address and booking code from your confirmation email to view or cancel your booking.</p>
+    <div class="form-group">
+      <label class="lbl">Email address</label>
+      <input class="inp" type="email" id="mg-email" placeholder="your@email.com" autocomplete="email">
+    </div>
+    <div class="form-group">
+      <label class="lbl">Booking code</label>
+      <input class="inp" type="text" id="mg-code" placeholder="e.g. AB3X7Q"
+        style="text-transform:uppercase;letter-spacing:3px;font-size:17px;max-width:180px"
+        oninput="this.value=this.value.toUpperCase().slice(0,6)"
+        onkeydown="if(event.key==='Enter')lookupBooking()">
+      <div class="hint">6-character code from your confirmation email</div>
+    </div>
+    <div id="mg-err" class="err" style="display:none"></div>
+    <button class="btn btn-primary" onclick="lookupBooking()">Find my booking</button>
+    <div id="mg-result"></div>
+  </div>`;
+}
+
+function lookupBooking(){
+  const email=document.getElementById('mg-email').value.trim();
+  const code=document.getElementById('mg-code').value.trim().toUpperCase();
+  const errEl=document.getElementById('mg-err');
+  errEl.style.display='none';
+  if(!email||!code){
+    errEl.textContent='Please enter both your email and booking code.';
+    errEl.style.display='block';return;
+  }
+  // Search local cache first
+  const b=bookings.find(bk=>
+    (bk.email||'').toLowerCase()===email.toLowerCase()&&
+    (bk.code||'').toUpperCase()===code
+  );
+  if(!b){
+    // Try refreshing from server in case data is stale
+    loadData().then(()=>{
+      const b2=bookings.find(bk=>
+        (bk.email||'').toLowerCase()===email.toLowerCase()&&
+        (bk.code||'').toUpperCase()===code
+      );
+      if(b2) showBookingResult(b2);
+      else{errEl.textContent='No booking found with that email and code.';errEl.style.display='block';}
+    });
+    return;
+  }
+  showBookingResult(b);
+}
+
+function showBookingResult(b){
+  const el=document.getElementById('mg-result');
+  const n=nightCount(b.checkIn,b.checkOut);
+  const statusIcon={pending:'⏳',approved:'✅',rejected:'❌'};
+  const statusText={pending:'Pending admin approval',approved:'Confirmed!',rejected:'Declined — please contact the admin'};
+  const canCancel=b.status==='pending'||b.status==='approved';
+  el.innerHTML=`<div class="booking-card" style="margin-top:.75rem">
+    <div class="booking-top">
+      <div class="booking-name">${b.name}</div>
+      <span class="badge ${b.status}">${b.status}</span>
+    </div>
+    <div class="booking-dates">${fmtDate(b.checkIn)} → ${fmtDate(b.checkOut)} &nbsp;·&nbsp; ${n} night${n!==1?'s':''}</div>
+    <div class="booking-meta">${b.guests} guest${parseInt(b.guests)!==1?'s':''} &nbsp;·&nbsp; Code: <strong>${b.code||'—'}</strong></div>
+    <div style="font-size:13px;color:var(--muted);margin:.25rem 0 .75rem">${statusIcon[b.status]||''} ${statusText[b.status]||b.status}</div>
+    ${canCancel?`<button class="btn btn-danger" id="cancel-btn" onclick="confirmCancel('${b.id}')">Cancel this booking</button>
+    <p class="hint" style="margin-top:.375rem">Cancellations cannot be undone.</p>`:''}
+  </div>`;
+}
+
+async function confirmCancel(id){
+  if(!confirm('Are you sure you want to cancel this booking? This cannot be undone.'))return;
+  const btn=document.getElementById('cancel-btn');
+  if(btn){btn.disabled=true;btn.textContent='Cancelling…';}
+  bookings=bookings.filter(x=>x.id!==id);
+  try{localStorage.setItem('ld_data_cache',JSON.stringify({b:bookings,s:subscribers}));}catch(e){}
+  await api({action:'deleteBooking',id});
+  const el=document.getElementById('mg-result');
+  el.innerHTML=`<div class="banner ok" style="margin-top:.75rem">✓ Your booking has been cancelled. Hope to see you at the lodge another time! 🏡</div>`;
+  document.getElementById('mg-email').value='';
+  document.getElementById('mg-code').value='';
 }
 
 function renderAdmin(){
@@ -754,7 +850,46 @@ async function removeSub(id){
   await api({action:'deleteSubscriber',id});
 }
 
-async function tryAdminLogin(){
+async // ══════════════════════════════════════════════════════
+//  MY BOOKING VIEW
+// ══════════════════════════════════════════════════════
+let myBookingEmail = '';
+
+function renderMyBooking(){
+  renderManage();
+}
+
+function lookupBooking(){
+  const val=(document.getElementById('mb-email').value||'').trim();
+  if(!val||!val.includes('@')){
+    document.getElementById('mb-err').textContent='Please enter a valid email address.';
+    document.getElementById('mb-err').style.display='block';
+    return;
+  }
+  const found=bookings.some(b=>(b.email||'').toLowerCase().trim()===val.toLowerCase());
+  if(!found){
+    document.getElementById('mb-err').style.display='block';
+    return;
+  }
+  myBookingEmail=val;
+  renderMyBooking();
+}
+
+async function cancelMyBooking(id,status){
+  const isApproved=status==='approved';
+  const msg=isApproved
+    ?'This is a CONFIRMED stay. Cancelling will remove it from the calendar — please also message the cabin admin to let them know.
+
+Are you sure you want to cancel?'
+    :'Are you sure you want to cancel this booking request?';
+  if(!confirm(msg)) return;
+  bookings=bookings.filter(x=>x.id!==id);
+  try{localStorage.setItem('ld_data_cache',JSON.stringify({b:bookings,s:subscribers}));}catch(e){}
+  renderMyBooking();
+  await api({action:'deleteBooking',id});
+}
+
+function tryAdminLogin(){
   const h=await sha256(document.getElementById('a-pass').value);
   if(h===CONFIG.hashes.admin){
     adminLoggedIn=true;
