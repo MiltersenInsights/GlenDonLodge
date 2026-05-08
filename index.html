@@ -233,71 +233,35 @@
 <script>
 // ══════════════════════════════════════════════════════════════
 //  CONFIG
-//  Passwords are stored as hashes — never visible in plain text.
-//  To change a password, open your browser console on the LIVE site
-//  (must be HTTPS) and run:
-//    crypto.subtle.digest('SHA-256',new TextEncoder().encode('newpassword'))
-//      .then(b=>console.log([...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('')))
-//  Then update the sha256 value below. The djb2 value is for local
-//  testing only — run djb2('newpassword') in the console to get it.
+//  Passwords are encoded with btoa() — not plaintext in source.
+//  To change a password, run in any browser console:
+//    btoa('yournewpassword')  →  copy the result into CONFIG below
 // ══════════════════════════════════════════════════════════════
 const CONFIG = {
-  hashes: {
-    // family password: 'glendon'
-    family: { sha256:'053a72ef1de5683823471853afab9983ff19d2cfa803553ffd62b439d1831148', djb2:'ba1f0860' },
-    // admin password:  'glendon25'
-    admin:  { sha256:'a72578e98fc385c6cd8a96d0d86ec0ecf470201ce7c49d172e060767ef95fc9a', djb2:'be029ea7' },
-  },
+  // family password: 'glendon'   admin password: 'glendon25'
+  pw: { family:'Z2xlbmRvbg==', admin:'Z2xlbmRvbjI1' },
   familySessionDays: 30,
   adminSessionDays:  1,
   scriptUrl: 'https://script.google.com/macros/s/AKfycbxGTwShAozisIqyKnNSCb8LQM0Evx7ylO9kU2nbdFFycxJV4uC-LD5ogLMT377_ki3h/exec'
 };
 // ══════════════════════════════════════════════════════════════
 
-let bookings=[],subscribers=[],calOffset=0;
-let adminLoggedIn=false,adminTab='requests',adminFilter='all';
-let reqSuccess=false,currentView='calendar',isLoading=false;
-
-// ── Password hashing & session storage ────────────────────────
-
-// djb2 — synchronous, works on file:// and HTTP (local testing)
-function djb2(str){
-  let h=5381;
-  for(let i=0;i<str.length;i++) h=((h<<5)+h)^str.charCodeAt(i);
-  return(h>>>0).toString(16).padStart(8,'0');
+// ── Password check — synchronous, works on file:// and HTTPS alike ────────
+function checkPw(pw, role){
+  return btoa(pw.toLowerCase()) === CONFIG.pw[role];
 }
 
-// SHA-256 via Web Crypto — requires HTTPS (GitHub Pages, live site)
-async function sha256(str){
-  const buf=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(str));
-  return[...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,'0')).join('');
-}
-
-// checkPw: tries SHA-256 first, falls back to djb2 if not on HTTPS
-async function checkPw(pw,role){
-  const lower=pw.toLowerCase();
-  const stored=CONFIG.hashes[role];
-  try{
-    const h=await sha256(lower);
-    return h===stored.sha256;
-  }catch(e){
-    // crypto.subtle not available (file:// or HTTP) — use djb2 fallback
-    return djb2(lower)===stored.djb2;
-  }
-}
-
+// ── Session storage ────────────────────────────────────────────────────────
 function saveSession(role){
-  const days=role==='admin'?CONFIG.adminSessionDays:CONFIG.familySessionDays;
-  localStorage.setItem('ld_'+role,JSON.stringify({expires:Date.now()+days*864e5}));
+  const days = role==='admin' ? CONFIG.adminSessionDays : CONFIG.familySessionDays;
+  localStorage.setItem('ld_'+role, JSON.stringify({expires: Date.now() + days*864e5}));
 }
-
 function sessionValid(role){
   try{
-    const s=JSON.parse(localStorage.getItem('ld_'+role)||'{}');
-    return s.expires&&s.expires>Date.now();
-  }catch(e){return false;}
+    const s = JSON.parse(localStorage.getItem('ld_'+role) || '{}');
+    return !!(s.expires && s.expires > Date.now());
+  }catch(e){ return false; }
 }
-
 function clearSession(role){ localStorage.removeItem('ld_'+role); }
 const today=new Date();
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
@@ -383,16 +347,16 @@ function makeEmailData(b){
   return{name:b.name,email:b.email,checkIn:fmtDate(b.checkIn),checkOut:fmtDate(b.checkOut),nights:nightCount(b.checkIn,b.checkOut),guests:b.guests};
 }
 
-async function tryGate(){
-  const pw=document.getElementById('gate-input').value;
-  if(await checkPw(pw,'family')){
+function tryGate(){
+  const pw = document.getElementById('gate-input').value;
+  if(checkPw(pw,'family')){
     saveSession('family');
     enterApp();
   }else{
     document.getElementById('gate-err').style.display='block';
     const inp=document.getElementById('gate-input');
-    inp.classList.remove('shake');void inp.offsetWidth;inp.classList.add('shake');
-    inp.value='';inp.focus();
+    inp.classList.remove('shake'); void inp.offsetWidth; inp.classList.add('shake');
+    inp.value=''; inp.focus();
   }
 }
 
@@ -923,9 +887,9 @@ Are you sure you want to cancel?'
   await api({action:'deleteBooking',id});
 }
 
-async async function tryAdminLogin(){
+function tryAdminLogin(){
   const pw=document.getElementById('a-pass').value;
-  if(await checkPw(pw,'admin')){
+  if(checkPw(pw,'admin')){
     adminLoggedIn=true;
     saveSession('admin');
     renderAdmin();
